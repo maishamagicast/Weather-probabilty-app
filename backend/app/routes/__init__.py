@@ -1,7 +1,6 @@
 from flask import Flask
 from flask_cors import CORS
-from app.models import connect_db
-from app.routes.home import home_bp
+from extensions import db  # make sure you have this file with db = SQLAlchemy()
 from app.routes.user import auth_bp
 from app.routes.dashboard import dashboard_bp
 
@@ -9,11 +8,17 @@ def create_app():
     app = Flask(__name__)
     CORS(app)
 
-    app.config["MONGODB_URI"] = "your_mongo_uri_here"
-    connect_db(app.config["MONGODB_URI"])
+    # Example configuration
+    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///app/weather.db"
+    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-    app.register_blueprint(home_bp)
+    db.init_app(app)
+
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(dashboard_bp, url_prefix="/dashboard")
 
+    with app.app_context():
+        db.create_all()
+
     return app
+

@@ -1,54 +1,37 @@
 from flask import Blueprint, request, jsonify
-from datetime import datetime
-from app.utils.geolocation import get_coordinates_from_place, validate_coordinates
-from app.utils.nasa_data import fetch_nasa_power_data, extract_mean_values
-from app.utils.predictor import compute_likelihoods  # renamed from weather_analysis for clarity
+from app.utils.nasa_data import fetch_nasa_power_5yr
 
-dashboard_bp = Blueprint("dashboard", __name__)
+dashboard_bp = Blueprint("dashboard_bp", __name__)
 
-@dashboard_bp.route("/analyze", methods=["POST"])
-def analyze_weather():
+@dashboard_bp.route("/data", methods=["POST"])
+def get_nasa_data():
     """
-    Expected JSON:
-    {
-        "place": "Nairobi, Kenya",
-        "start_date": "2024-05-01",
-        "end_date": "2024-05-07",
-        "parameters": ["T2M", "WS2M", "PRECTOTCORR", "RH2M"]
-    }
+    Route for fetching NASA POWER climate data averages.
+    Expects JSON input with: month, day, year, latitude, longitude
     """
     data = request.get_json()
-    place = data.get("place")
-    start_date = datetime.strptime(data.get("start_date"), "%Y-%m-%d")
-    end_date = datetime.strptime(data.get("end_date"), "%Y-%m-%d")
-    parameters = data.get("parameters", ["T2M", "WS2M", "PRECTOTCORR", "RH2M"])
 
-    lat, lon = get_coordinates_from_place(place)
-    validate_coordinates(lat, lon)
+    # Validate required fields
+    required_fields = ["month", "day", "year", "latitude", "longitude"]
+    if not all(field in data for field in required_fields):
+        return jsonify({"error": "Missing required fields"}), 400
 
-    nasa_json = fetch_nasa_power_data(lat, lon, start_date, end_date, parameters)
-    mean_data = extract_mean_values(nasa_json)
-    likelihoods = compute_likelihoods(mean_data)
+    try:
+        lat = float(data["latitude"])
+        lon = float(data["longitude"])
+        month = int(data["month"])
+        day = int(data["day"])
+        year = int(data["year"])  # ignored by function, but accepted
 
-    # Simple descriptive summary
-    simple_summary = []
-    if likelihoods.get("very_wet", 0) > 50:
-        simple_summary.append("It will probably rain or be quite wet.")
-    if likelihoods.get("very_hot", 0) > 50:
-        simple_summary.append("Expect hot weather.")
-    if likelihoods.get("very_cold", 0) > 50:
-        simple_summary.append("It may be unusually cold.")
-    if likelihoods.get("very_windy", 0) > 50:
-        simple_summary.append("It could be windy.")
-    if likelihoods.get("very_uncomfortable", 0) > 50:
-        simple_summary.append("The humidity may feel uncomfortable.")
-    if not simple_summary:
-        simple_summary.append("Weather conditions look mostly comfortable.")
+        # Fetch the NASA data
+        result_json = fetch_nasa_power_5yr(lat=lat, lon=lon, month=month, day=day, year=year)
 
-    return jsonify({
-        "location": place,
-        "coordinates": {"lat": lat, "lon": lon},
-        "mean_data": mean_data,
-        "likelihoods": likelihoods,
-        "summary": " ".join(simple_summary)
-    }), 200
+        return jsonify({
+            "message": "Data fetched successfully",
+            "data": result_json
+        }), 200
+
+    except ValueError:
+        return jsonify({"error": "Invalid latitude, longitude, or date values"}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

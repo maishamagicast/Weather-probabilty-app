@@ -1,13 +1,6 @@
-from flask import Flask
-from mongoengine import connect
-import os
-from dotenv import load_dotenv
+from app import create_app
 
-load_dotenv()
+app = create_app()
 
-app = Flask(__name__)
-
-connect(
-    db=os.getenv("MONGO_DB_NAME", "weather_app"),
-    host=os.getenv("MONGO_URI", "mongodb://localhost:27017/weather_app")
-)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=True)

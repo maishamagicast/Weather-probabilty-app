@@ -15,6 +15,7 @@ dotenv = "*"
 xarray = "*"
 flask-mongoengine = "*"
 h5py = "*"
+flask-jwt-extended = "*"
 
 [dev-packages]
 

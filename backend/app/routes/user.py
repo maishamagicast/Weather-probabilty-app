@@ -1,39 +1,126 @@
 from flask import Blueprint, request, jsonify
-from werkzeug.security import generate_password_hash, check_password_hash
-from app.models import User
+from extensions import db
+from models.user_model import User
+from flask_jwt_extended import (
+    create_access_token,
+    jwt_required,
+    get_jwt_identity
+)
+from datetime import timedelta
 
-auth_bp = Blueprint("auth", __name__)
+auth_bp = Blueprint("auth_bp", __name__, url_prefix="/auth")
 
-@auth_bp.route("/signup", methods=["POST"])
-def signup():
+
+# -------------------------
+# REGISTER USER
+# -------------------------
+@auth_bp.route("/register", methods=["POST"])
+def register_user():
+    """
+    Register a new user.
+    Expected JSON:
+    {
+        "username": "johndoe",
+        "email": "john@example.com",
+        "password": "securepassword"
+    }
+    """
     data = request.get_json()
-    name = data.get("name")
-    email = data.get("email")
-    password = data.get("password")
 
-    if not all([name, email, password]):
+    if not data or not all(k in data for k in ("username", "email", "password")):
         return jsonify({"error": "Missing required fields"}), 400
-    if User.objects(email=email):
-        return jsonify({"error": "Email already exists"}), 400
 
-    hashed_pw = generate_password_hash(password)
-    user = User(name=name, email=email, password_hash=hashed_pw)
-    user.save()
+    username = data["username"].strip()
+    email = data["email"].strip().lower()
+    password = data["password"]
 
-    return jsonify({"message": "User created successfully"}), 201
+    if User.query.filter_by(username=username).first():
+        return jsonify({"error": "Username already taken"}), 400
+
+    if User.query.filter_by(email=email).first():
+        return jsonify({"error": "Email already registered"}), 400
+
+    try:
+        new_user = User(username=username, email=email)
+        new_user.set_password(password)
+
+        db.session.add(new_user)
+        db.session.commit()
+
+        return jsonify({
+            "message": "User registered successfully!",
+            "user": {
+                "id": new_user.id,
+                "username": new_user.username,
+                "email": new_user.email,
+                "created_at": new_user.created_at.isoformat()
+            }
+        }), 201
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"Registration failed: {str(e)}"}), 500
 
 
+# -------------------------
+# LOGIN USER
+# -------------------------
 @auth_bp.route("/login", methods=["POST"])
-def login():
+def login_user():
+    """
+    Log in a user.
+    Expected JSON:
+    {
+        "email": "john@example.com",
+        "password": "securepassword"
+    }
+    """
     data = request.get_json()
-    email = data.get("email")
-    password = data.get("password")
 
-    user = User.objects(email=email).first()
-    if not user or not check_password_hash(user.password_hash, password):
-        return jsonify({"error": "Invalid credentials"}), 401
+    if not data or not all(k in data for k in ("email", "password")):
+        return jsonify({"error": "Missing email or password"}), 400
+
+    email = data["email"].strip().lower()
+    password = data["password"]
+
+    user = User.query.filter_by(email=email).first()
+
+    if not user or not user.check_password(password):
+        return jsonify({"error": "Invalid email or password"}), 401
+
+    # Create JWT token (expires in 2 hours)
+    access_token = create_access_token(
+        identity=user.id,
+        expires_delta=timedelta(hours=2)
+    )
 
     return jsonify({
-        "message": "Login successful",
-        "user": {"id": str(user.id), "name": user.name, "email": user.email}
+        "message": "Login successful!",
+        "access_token": access_token,
+        "user": {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email
+        }
     }), 200
+
+
+# -------------------------
+# PROTECTED TEST ROUTE
+# -------------------------
+@auth_bp.route("/me", methods=["GET"])
+@jwt_required()
+def get_profile():
+    """Get logged-in user's profile"""
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    return jsonify({
+        "id": user.id,
+        "username": user.username,
+        "email": user.email,
+        "created_at": user.created_at.isoformat()
+    })
