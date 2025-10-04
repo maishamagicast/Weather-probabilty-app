@@ -10,6 +10,11 @@ flask-cors = "*"
 gunicorn = "*"
 requests = "*"
 werkzeug = "*"
+earthaccess = "*"
+dotenv = "*"
+xarray = "*"
+flask-mongoengine = "*"
+h5py = "*"
 
 [dev-packages]
 
