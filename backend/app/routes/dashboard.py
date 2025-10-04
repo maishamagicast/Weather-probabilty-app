@@ -1,5 +1,8 @@
 from flask import Blueprint, request, jsonify
 from app.utils.nasa_power_fetcher import fetch_nasa_power_5yr
+from app.utils.weekly_forecast import get_forecast
+from app.utils.analysis import fetch_and_analyze_nasa_data
+
 
 dashboard_bp = Blueprint("dashboard_bp", __name__)
 
@@ -33,5 +36,70 @@ def get_nasa_data():
 
     except ValueError:
         return jsonify({"error": "Invalid latitude, longitude, or date values"}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+
+@dashboard_bp.route("/forecast", methods=["POST"])
+def seasonal_forecast():
+    """
+    Fetch short-term (7–30 days) NASA POWER weather forecast for a given location.
+    Expects JSON:
+    {
+        "latitude": -1.286389,
+        "longitude": 36.817223,
+        "days": 7
+    }
+    """
+    data = request.get_json()
+
+    if not data or "latitude" not in data or "longitude" not in data:
+        return jsonify({"error": "Missing latitude or longitude"}), 400
+
+    lat = float(data["latitude"])
+    lon = float(data["longitude"])
+    days = int(data.get("days", 7))  # default to 7-day forecast
+
+    try:
+        result = get_forecast(lat, lon, days)
+        return jsonify({
+            "message": f"{days}-day forecast retrieved successfully.",
+            "data": result
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+    
+from flask import Blueprint, request, jsonify
+
+dashboard_bp = Blueprint("dashboard", __name__)
+
+from flask import request
+
+@dashboard_bp.route("/analysis-results", methods=["POST"])
+def get_analysis_results():
+    data = request.get_json()
+
+    if not data:
+        return jsonify({"error": "Missing JSON body"}), 400
+
+    # Extract required parameters explicitly from JSON body
+    lat = data.pop("latitude", None)
+    lon = data.pop("longitude", None)
+    start_date = data.pop("start_date", None)
+    end_date = data.pop("end_date", None)
+
+    # Validate required parameters
+    if not lat or not lon or not start_date or not end_date:
+        return jsonify({"error": "Missing required fields: latitude, longitude, start_date, end_date"}), 400
+
+    if not data:
+        return jsonify({"error": "No thresholds provided in the body"}), 400
+
+    try:
+        # data now contains only thresholds like temperature, humidity, etc.
+        result = fetch_and_analyze_nasa_data(data, lat, lon, start_date, end_date)
+        return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
