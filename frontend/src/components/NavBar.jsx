@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Satellite, Menu, X, CloudRain, Sun } from 'lucide-react';
 
 function NavBar({ isSignedIn, user, onSignOut, onNavigateHome, onNavigateDashboard, currentPage }) {
@@ -7,6 +7,28 @@ function NavBar({ isSignedIn, user, onSignOut, onNavigateHome, onNavigateDashboa
   const initials = user?.name
     ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
     : 'U';
+
+  // Close mobile menu when page changes
+  useEffect(() => {
+    setIsMenuOpen(false);
+  }, [currentPage]);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (isMenuOpen && !event.target.closest('nav')) {
+        setIsMenuOpen(false);
+      }
+    };
+
+    if (isMenuOpen) {
+      document.addEventListener('click', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [isMenuOpen]);
 
   return (
     <nav className="bg-black/80 backdrop-blur-xl border-b border-cyan-500/20 sticky top-0 z-50">
@@ -31,7 +53,10 @@ function NavBar({ isSignedIn, user, onSignOut, onNavigateHome, onNavigateDashboa
           {/* Mobile Menu Button */}
           <button 
             className="lg:hidden p-2 text-cyan-400 hover:text-cyan-300 transition-colors"
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsMenuOpen(!isMenuOpen);
+            }}
           >
             {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
@@ -85,7 +110,7 @@ function NavBar({ isSignedIn, user, onSignOut, onNavigateHome, onNavigateDashboa
 
         {/* Mobile Menu */}
         {isMenuOpen && isSignedIn && (
-          <div className="lg:hidden mt-4 pb-4 border-t border-cyan-500/20 pt-4">
+          <div className="lg:hidden mt-4 pb-4 border-t border-cyan-500/20 pt-4 animate-in slide-in-from-top duration-300">
             <div className="flex flex-col gap-3">
               <button
                 className={`px-4 py-3 rounded-lg font-medium transition-all ${
@@ -113,12 +138,15 @@ function NavBar({ isSignedIn, user, onSignOut, onNavigateHome, onNavigateDashboa
               >
                 My Farm
               </button>
-              <div className="px-4 py-3 border-t border-cyan-500/20">
+              <div className="px-4 py-3 border-t border-cyan-500/20 mt-2">
                 <p className="text-sm font-semibold text-white">{user?.name}</p>
                 <p className="text-xs text-cyan-300/70">{user?.email}</p>
                 <button 
-                  onClick={onSignOut}
-                  className="w-full mt-3 px-4 py-2 text-center text-sm text-cyan-300/70 hover:text-cyan-400 hover:bg-cyan-500/10 transition-colors rounded-lg"
+                  onClick={() => {
+                    onSignOut();
+                    setIsMenuOpen(false);
+                  }}
+                  className="w-full mt-3 px-4 py-2 text-center text-sm text-cyan-300/70 hover:text-cyan-400 hover:bg-cyan-500/10 transition-colors rounded-lg border border-cyan-500/20"
                 >
                   Sign Out
                 </button>

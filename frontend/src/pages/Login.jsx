@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { ArrowLeft, Satellite, Sparkles, Eye, EyeOff } from 'lucide-react';
 import { authAPI } from '../services/api';
 
-function Login({ onLogin, onNavigateHome }) {
+function Login({ onLogin, onNavigateHome, onNavigateSignup }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -173,7 +173,7 @@ function Login({ onLogin, onNavigateHome }) {
             <p className="text-cyan-300/50 text-sm">
               Don't have an account?{' '}
               <button 
-                onClick={() => window.location.href = '/signup'} // You can replace this with router navigation
+                onClick={onNavigateSignup}
                 className="text-cyan-400 hover:text-cyan-300 underline transition-colors"
               >
                 Create account
