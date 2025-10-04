@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from app.utils.nasa_data import fetch_nasa_power_5yr
+from app.utils.nasa_power_fetcher import fetch_nasa_power_5yr
 
 dashboard_bp = Blueprint("dashboard_bp", __name__)
 
