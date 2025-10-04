@@ -46,4 +46,4 @@ def get_forecast(lat, lon, days=7):
     }
 
 
-print(get_forecast(-1.286389, 36.817223, days=7))
+# print(get_forecast(-1.286389, 36.817223, days=7))
