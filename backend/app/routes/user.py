@@ -7,7 +7,8 @@ from flask_jwt_extended import (
     get_jwt_identity
 )
 from datetime import timedelta
-
+from flask import current_app
+from sqlalchemy.exc import IntegrityError
 auth_bp = Blueprint("auth_bp", __name__, url_prefix="/auth")
 
 
@@ -124,3 +125,43 @@ def get_profile():
         "email": user.email,
         "created_at": user.created_at.isoformat()
     })
+
+
+#==================
+# DEMO USER 
+#==================
+@auth_bp.route("/demo", methods=["GET"])
+def demo_login():
+    """
+    Instantly log in as demo user — no registration required.
+    For NASA Space Apps demo only.
+    """
+    # Check if DEMO_MODE is enabled
+    if not current_app.config.get("DEMO_MODE", False):
+        return jsonify({"error": "Demo mode is disabled"}), 403
+
+    # Either fetch existing demo user or create one silently
+    demo_email = "demo@nasaapp.com"
+    demo_user = User.query.filter_by(email=demo_email).first()
+
+    if not demo_user:
+        demo_user = User(username="demo_user", email=demo_email)
+        demo_user.set_password("demo1234")
+        db.session.add(demo_user)
+        try:
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+
+    # Auto-generate token (2-hour lifetime)
+    access_token = create_access_token(identity=demo_user.id, expires_delta=timedelta(hours=2))
+
+    return jsonify({
+        "message": "Demo user logged in automatically",
+        "access_token": access_token,
+        "user": {
+            "id": demo_user.id,
+            "username": demo_user.username,
+            "email": demo_user.email
+        }
+    }), 200
