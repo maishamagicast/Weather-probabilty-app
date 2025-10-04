@@ -4,6 +4,18 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
+flask-sqlalchemy = "*"
+flask = "*"
+flask-cors = "*"
+gunicorn = "*"
+requests = "*"
+werkzeug = "*"
+earthaccess = "*"
+dotenv = "*"
+xarray = "*"
+flask-mongoengine = "*"
+h5py = "*"
+flask-jwt-extended = "*"
 
 [dev-packages]
 
