@@ -133,31 +133,32 @@ def get_profile():
 @auth_bp.route("/demo", methods=["GET"])
 def demo_login():
     """
-    Instantly log in as demo user — no registration required.
-    For NASA Space Apps demo only.
+    Instantly log in as the demo user — no registration required.
+    If the demo user doesn't exist, create it once.
     """
-    # Check if DEMO_MODE is enabled
-    if not current_app.config.get("DEMO_MODE", False):
-        return jsonify({"error": "Demo mode is disabled"}), 403
 
-    # Either fetch existing demo user or create one silently
     demo_email = "demo@nasaapp.com"
+    demo_username = "demo_user"
+    demo_password = "demo1234"
+
+    # Check if user exists
     demo_user = User.query.filter_by(email=demo_email).first()
 
+    # Create once if missing
     if not demo_user:
-        demo_user = User(username="demo_user", email=demo_email)
-        demo_user.set_password("demo1234")
+        demo_user = User(username=demo_username, email=demo_email)
+        demo_user.set_password(demo_password)
         db.session.add(demo_user)
-        try:
-            db.session.commit()
-        except IntegrityError:
-            db.session.rollback()
+        db.session.commit()
 
-    # Auto-generate token (2-hour lifetime)
-    access_token = create_access_token(identity=demo_user.id, expires_delta=timedelta(hours=2))
+    # Auto-login with JWT token
+    access_token = create_access_token(
+        identity=demo_user.id,
+        expires_delta=timedelta(hours=2)
+    )
 
     return jsonify({
-        "message": "Demo user logged in automatically",
+        "message": "Demo user logged in successfully",
         "access_token": access_token,
         "user": {
             "id": demo_user.id,
