@@ -1,15 +1,19 @@
 import os
 from flask import Flask
 from flask_cors import CORS
-from extensions import db
+from extensions import db,jwt
 from app.routes.user import auth_bp
 from app.routes.dashboard import dashboard_bp
+from app.config import DevConfig
+
+
 
 def create_app():
     app = Flask(__name__)
+    app.config.from_object(DevConfig)
     CORS(app)
+    jwt.init_app(app)
 
-    # ✅ Build absolute path to DB file
     basedir = os.path.abspath(os.path.dirname(__file__))
     db_dir = os.path.join(basedir, "instances")
     os.makedirs(db_dir, exist_ok=True)  # make sure the folder exists
@@ -29,3 +33,5 @@ def create_app():
         db.create_all()
 
     return app
+
+
