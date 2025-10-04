@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import NavBar from './components/NavBar';
 import Footer from './components/Footer';
 import HomePage from './pages/HomePage';
@@ -11,76 +11,113 @@ export default function App() {
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [user, setUser] = useState(null);
 
-  const handleLogin = async (userData) => {
+  // Check for existing session on app load
+  useEffect(() => {
+    const savedUser = localStorage.getItem('agrispace_user');
+    const savedToken = localStorage.getItem('agrispace_token');
+    
+    if (savedUser && savedToken) {
+      setUser(JSON.parse(savedUser));
+      setIsSignedIn(true);
+      setCurrentPage('dashboard');
+    }
+  }, []);
+
+  const handleLogin = (userData) => {
     setUser(userData);
     setIsSignedIn(true);
     setCurrentPage('dashboard');
+    localStorage.setItem('agrispace_user', JSON.stringify(userData));
+    localStorage.setItem('agrispace_token', 'mock-jwt-token');
   };
 
-  const handleSignUp = async (userData) => {
+  const handleSignUp = (userData) => {
     setUser(userData);
     setIsSignedIn(true);
     setCurrentPage('dashboard');
+    localStorage.setItem('agrispace_user', JSON.stringify(userData));
+    localStorage.setItem('agrispace_token', 'mock-jwt-token');
   };
 
   const handleSignOut = () => {
-    setIsSignedIn(false);
     setUser(null);
+    setIsSignedIn(false);
+    setCurrentPage('home');
+    localStorage.removeItem('agrispace_user');
+    localStorage.removeItem('agrispace_token');
+  };
+
+  const handleNavigateHome = () => {
     setCurrentPage('home');
   };
 
-  const renderPage = () => {
-    switch (currentPage) {
-      case 'login':
-        return (
-          <Login 
-            onLogin={handleLogin} 
-            onNavigateHome={() => setCurrentPage('home')}
-            onNavigateSignup={() => setCurrentPage('signup')}
-          />
-        );
-      case 'signup':
-        return (
-          <Signup 
-            onSignUp={handleSignUp} 
-            onNavigateHome={() => setCurrentPage('home')}
-            onNavigateLogin={() => setCurrentPage('login')}
-          />
-        );
-      case 'dashboard':
-        return <Dashboard user={user} />;
-      default:
-        return (
-          <HomePage
-            onNavigateLogin={() => setCurrentPage('login')}
-            onNavigateSignUp={() => setCurrentPage('signup')}
-            isSignedIn={isSignedIn}
-            user={user}
-          />
-        );
+  const handleNavigateLogin = () => {
+    setCurrentPage('login');
+  };
+
+  const handleNavigateSignup = () => {
+    setCurrentPage('signup');
+  };
+
+  const handleNavigateDashboard = () => {
+    if (isSignedIn) {
+      setCurrentPage('dashboard');
     }
   };
 
-  const showNavAndFooter = currentPage !== 'login' && currentPage !== 'signup';
+  const handleDemoAccess = () => {
+    const demoUser = {
+      id: 3,
+      email: "demo@nasa.earth",
+      name: "Demo Farmer",
+      location: "Nairobi, Kenya",
+      farmSize: "10 acres",
+      crops: ["Maize", "Beans", "Coffee"]
+    };
+    handleLogin(demoUser);
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900">
-      {showNavAndFooter && (
+    <div className="flex flex-col min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900">
+      {currentPage !== 'login' && currentPage !== 'signup' && (
         <NavBar
           isSignedIn={isSignedIn}
           user={user}
           onSignOut={handleSignOut}
-          onNavigateHome={() => setCurrentPage('home')}
-          onNavigateDashboard={() => setCurrentPage('dashboard')}
-          currentPage={currentPage}
+          onNavigateHome={handleNavigateHome}
+          onNavigateDashboard={handleNavigateDashboard}
+          currentPage={currentPage === 'home' ? 'home' : 'dashboard'}
         />
       )}
-      
-      <main className="flex-grow">
-        {renderPage()}
+
+      <main className="flex-1">
+        {currentPage === 'home' && (
+          <HomePage
+            onNavigateLogin={handleNavigateLogin}
+            onNavigateSignup={handleNavigateSignup}
+            isSignedIn={isSignedIn}
+            user={user}
+            onDemoAccess={handleDemoAccess}
+          />
+        )}
+        {currentPage === 'login' && (
+          <Login
+            onLogin={handleLogin}
+            onNavigateHome={handleNavigateHome}
+            onNavigateSignup={handleNavigateSignup}
+          />
+        )}
+        {currentPage === 'signup' && (
+          <Signup
+            onSignUp={handleSignUp}
+            onNavigateHome={handleNavigateHome}
+            onNavigateLogin={handleNavigateLogin}
+          />
+        )}
+        {currentPage === 'dashboard' && <Dashboard user={user} />}
       </main>
-      
-      {showNavAndFooter && <Footer />}
+
+      {currentPage !== 'login' && currentPage !== 'signup' && <Footer />}
     </div>
   );
 }

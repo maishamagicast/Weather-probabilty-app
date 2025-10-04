@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Satellite, CloudRain, Sun, Wind, Droplets, ArrowRight, Sparkles } from 'lucide-react';
+import { Satellite, CloudRain, Sun, Wind, ArrowRight, Sparkles } from 'lucide-react';
 
-function HomePage({ onNavigateLogin, onNavigateSignUp, isSignedIn, user }) {
+function HomePage({ onNavigateLogin, onNavigateSignup, isSignedIn, user, onDemoAccess }) {
   const [currentFeature, setCurrentFeature] = useState(0);
 
   const features = [
@@ -76,7 +76,7 @@ function HomePage({ onNavigateLogin, onNavigateSignUp, isSignedIn, user }) {
             {!isSignedIn ? (
               <>
                 <button
-                  onClick={onNavigateSignUp}
+                  onClick={onNavigateSignup}
                   className="group px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-xl font-semibold text-lg hover:scale-105 transition-all duration-300 shadow-2xl shadow-cyan-500/25 flex items-center gap-3"
                 >
                   Start Free Trial
@@ -87,6 +87,12 @@ function HomePage({ onNavigateLogin, onNavigateSignUp, isSignedIn, user }) {
                   className="px-8 py-4 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl font-semibold text-lg hover:bg-white/20 transition-all duration-300"
                 >
                   Sign In
+                </button>
+                <button
+                  onClick={onDemoAccess}
+                  className="px-8 py-4 bg-green-500/20 backdrop-blur-sm border border-green-500/30 rounded-xl font-semibold text-lg hover:bg-green-500/30 transition-all duration-300 text-green-400"
+                >
+                  Try Demo
                 </button>
               </>
             ) : (
