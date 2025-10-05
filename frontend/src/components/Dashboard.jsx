@@ -133,8 +133,12 @@ function Dashboard({ user }) {
               )}
             </div>
 
-            <WeatherAnalysisPanel user={user} onViewSatellite={() => setActiveModal('satellite')} />
-
+              <WeatherAnalysisPanel
+                  user={user}
+                  latitude={selectedLocation?.lat}
+                  longitude={selectedLocation?.lon}
+                  onViewSatellite={() => setActiveModal('satellite')}
+                />
             <div className="bg-gray-800/60 p-3 rounded-xl border border-cyan-500/20">
               <h3 className="text-cyan-400 font-semibold mb-2">Quick Actions</h3>
               <div className="grid grid-cols-2 gap-2">
