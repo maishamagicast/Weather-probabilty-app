@@ -11,7 +11,19 @@ from app.config import DevConfig
 def create_app():
     app = Flask(__name__)
     app.config.from_object(DevConfig)
-    CORS(app)
+    CORS(
+        app,
+        resources={r"/*": {"origins": [
+            "http://localhost:5173",     # Vite dev server
+            "http://127.0.0.1:5173",
+            "https://weather-probabilty-app.onrender.com",  # Render backend
+            "https://your-frontend-domain.com"  # your deployed frontend domain
+        ]}},
+        supports_credentials=False,  # set True only if using cookies/sessions
+        allow_headers=["Content-Type", "Authorization"],  # ✅ JWT-safe
+        expose_headers=["Content-Type", "Authorization"],
+        methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    )
     jwt.init_app(app)
 
     basedir = os.path.abspath(os.path.dirname(__file__))
