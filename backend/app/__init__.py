@@ -14,12 +14,7 @@ def create_app():
     app.config.from_object(DevConfig)
     CORS(
         app,
-        resources={r"/*": {"origins": [
-            "http://localhost:5173",     # Vite dev server
-            "http://127.0.0.1:5173",
-            "https://weather-probabilty-app.onrender.com",  # Render backend
-            "https://your-frontend-domain.com"  # your deployed frontend domain
-        ]}},
+        resources={r"/*": {"origins": '*'}},
         supports_credentials=False,  # set True only if using cookies/sessions
         allow_headers=["Content-Type", "Authorization"],  # ✅ JWT-safe
         expose_headers=["Content-Type", "Authorization"],
