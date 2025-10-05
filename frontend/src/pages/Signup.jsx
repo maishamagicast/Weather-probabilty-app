@@ -216,7 +216,7 @@ function Signup({ onSignUp, onNavigateHome, onNavigateLogin, darkMode }) {
         </p>
       </div>
     </div>
-  );
+  )
 }
 
-export default Signup;
+export default Signup

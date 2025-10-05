@@ -64,6 +64,7 @@ function App() {
     handleLogin(demoUser);
   };
 
+function App() {
   return (
     <ThemeProvider>
       <ThemeContext.Consumer>

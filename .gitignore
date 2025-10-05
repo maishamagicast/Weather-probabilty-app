@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Logs
 logs
 *.log
@@ -25,6 +24,15 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-=======
 venv/
->>>>>>> 829b28cede1117ff61404afb11bf8c46a37275ee
+=======
+__pycache__/
+*.pyc
+*.pyo
+*.db
+*.sqlite3
+*.log
+.DS_Store
+node_modules/
+.env
+

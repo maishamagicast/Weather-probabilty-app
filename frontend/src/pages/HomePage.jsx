@@ -682,4 +682,4 @@ function HomePage({ onNavigateLogin, onNavigateSignup, isSignedIn, user, onDemoA
   );
 }
 
-export default HomePage;
+export default HomePage

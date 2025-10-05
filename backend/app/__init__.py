@@ -4,18 +4,22 @@ from flask_cors import CORS
 from extensions import db,jwt
 from app.routes.user import auth_bp
 from app.routes.dashboard import dashboard_bp
-<<<<<<< HEAD
-from app.routes.prediction import prediction_bp
-=======
+# from app.routes.prediction import prediction_bp
 from app.config import DevConfig
 
->>>>>>> 9b88001d0317c4d5546aab9695fbef673a69b70a
 
 
 def create_app():
     app = Flask(__name__)
     app.config.from_object(DevConfig)
-    CORS(app)
+    CORS(
+        app,
+        resources={r"/*": {"origins": '*'}},
+        supports_credentials=False,  # set True only if using cookies/sessions
+        allow_headers=["Content-Type", "Authorization"],  # ✅ JWT-safe
+        expose_headers=["Content-Type", "Authorization"],
+        methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    )
     jwt.init_app(app)
 
     basedir = os.path.abspath(os.path.dirname(__file__))
@@ -32,7 +36,7 @@ def create_app():
     # Register blueprints
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(dashboard_bp, url_prefix="/dashboard")
-    app.register_blueprint(prediction_bp, url_prefix="/prediction")
+    # app.register_blueprint(prediction_bp, url_prefix="/prediction")
 
     with app.app_context():
         db.create_all()

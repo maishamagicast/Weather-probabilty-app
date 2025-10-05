@@ -246,7 +246,7 @@ function Login({ onLogin, onNavigateHome, onNavigateSignup, darkMode }) {
         `}
       </style>
     </div>
-  );
+  )
 }
 
-export default Login;
+export default Login

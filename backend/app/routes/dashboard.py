@@ -77,20 +77,27 @@ dashboard_bp = Blueprint("dashboard", __name__)
 
 from flask import request
 
-@dashboard_bp.route("/analysis-results", methods=["POST"])
+@dashboard_bp.route("/analysis-results", methods=["POST", "OPTIONS"])
 def get_analysis_results():
+    if request.method == "OPTIONS":
+        # Handle preflight CORS request
+        response = jsonify({"status": "ok"})
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
+        response.headers.add("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        return response, 200
+
+    # Handle actual POST request
     data = request.get_json()
 
     if not data:
         return jsonify({"error": "Missing JSON body"}), 400
 
-    # Extract required parameters explicitly from JSON body
     lat = data.pop("latitude", None)
     lon = data.pop("longitude", None)
     start_date = data.pop("start_date", None)
     end_date = data.pop("end_date", None)
 
-    # Validate required parameters
     if not lat or not lon or not start_date or not end_date:
         return jsonify({"error": "Missing required fields: latitude, longitude, start_date, end_date"}), 400
 
@@ -98,8 +105,11 @@ def get_analysis_results():
         return jsonify({"error": "No thresholds provided in the body"}), 400
 
     try:
-        # data now contains only thresholds like temperature, humidity, etc.
         result = fetch_and_analyze_nasa_data(data, lat, lon, start_date, end_date)
-        return jsonify(result)
+        response = jsonify(result)
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        return response, 200
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        response = jsonify({"error": str(e)})
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        return response, 500
