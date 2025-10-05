@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
 import { 
   BarChart3, Thermometer, CloudRain, Droplets, Wind, 
-  Download, FileText, ChevronDown, ChevronUp, X, Satellite,
-  TrendingUp
+  Download, FileText, ChevronDown, ChevronUp, X, Satellite 
 } from 'lucide-react';
-import { mockGraphData } from '../MockGraphData';
 
 const WeatherAnalysisPanel = ({ user }) => {
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -15,7 +13,6 @@ const WeatherAnalysisPanel = ({ user }) => {
   const [analysisResults, setAnalysisResults] = useState([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [expandedResult, setExpandedResult] = useState(null);
-  const [showGraph, setShowGraph] = useState(false);
 
   const weatherVariables = [
     { 
@@ -23,32 +20,28 @@ const WeatherAnalysisPanel = ({ user }) => {
       name: 'Temperature', 
       unit: '°C', 
       icon: Thermometer,
-      description: 'Average daily temperature',
-      graphData: mockGraphData.temperature
+      description: 'Average daily temperature'
     },
     { 
       id: 'precipitation', 
       name: 'Precipitation', 
       unit: 'mm', 
       icon: CloudRain,
-      description: 'Daily rainfall amount',
-      graphData: mockGraphData.rainfall
+      description: 'Daily rainfall amount'
     },
     { 
       id: 'humidity', 
       name: 'Humidity', 
       unit: '%', 
       icon: Droplets,
-      description: 'Relative humidity percentage',
-      graphData: mockGraphData.soilMoisture
+      description: 'Relative humidity percentage'
     },
     { 
       id: 'wind', 
       name: 'Wind Speed', 
       unit: 'm/s', 
       icon: Wind,
-      description: 'Average wind speed',
-      graphData: null
+      description: 'Average wind speed'
     }
   ];
 
@@ -152,51 +145,6 @@ const WeatherAnalysisPanel = ({ user }) => {
     URL.revokeObjectURL(url);
   };
 
-  // Graph Component
-  const SimpleBarChart = ({ data, title, unit, optimal }) => {
-    if (!data || data.length === 0) return null;
-
-    const maxValue = Math.max(...data.map(d => d.value), optimal || 0);
-    const scale = 100 / maxValue;
-
-    return (
-      <div className="mt-4 p-4 bg-gray-700/30 rounded-lg">
-        <h5 className="font-semibold text-cyan-400 mb-3 flex items-center gap-2">
-          <TrendingUp className="w-4 h-4" />
-          {title} Trends
-        </h5>
-        <div className="flex items-end justify-between h-32 gap-1">
-          {data.map((item, index) => (
-            <div key={index} className="flex flex-col items-center flex-1 group">
-              <div className="text-xs text-cyan-300/70 mb-1">{item.month}</div>
-              <div className="relative w-full flex justify-center">
-                <div
-                  className={`w-3/4 rounded-t transition-all duration-500 ${
-                    item.value >= (optimal || maxValue * 0.8) 
-                      ? 'bg-green-500' 
-                      : item.value >= (optimal || maxValue * 0.6)
-                      ? 'bg-yellow-500'
-                      : 'bg-red-500'
-                  }`}
-                  style={{ height: `${item.value * scale}%`, minHeight: '4px' }}
-                >
-                  <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-xs text-white bg-black/70 px-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                    {item.value}{unit}
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-        {optimal && (
-          <div className="mt-2 text-xs text-cyan-300/70">
-            Optimal range: {optimal}{unit} (dashed line)
-          </div>
-        )}
-      </div>
-    );
-  };
-
   return (
     <div className="bg-gray-800/60 backdrop-blur-xl rounded-2xl border border-cyan-500/20 p-6 mb-6">
       <div className="flex items-center justify-between mb-6">
@@ -206,13 +154,6 @@ const WeatherAnalysisPanel = ({ user }) => {
         </h3>
         {analysisResults.length > 0 && (
           <div className="flex gap-2">
-            <button
-              onClick={() => setShowGraph(!showGraph)}
-              className="px-4 py-2 bg-purple-500/20 border border-purple-500/30 rounded-lg text-purple-400 hover:bg-purple-500/30 transition-colors flex items-center gap-2"
-            >
-              <TrendingUp className="w-4 h-4" />
-              {showGraph ? 'Hide Graphs' : 'Show Graphs'}
-            </button>
             <button
               onClick={() => exportData('csv')}
               className="px-4 py-2 bg-green-500/20 border border-green-500/30 rounded-lg text-green-400 hover:bg-green-500/30 transition-colors flex items-center gap-2"
@@ -337,51 +278,39 @@ const WeatherAnalysisPanel = ({ user }) => {
         </div>
       </div>
 
-      <button 
-        onClick={analyzeWeather}
-        disabled={isAnalyzing || selectedVariables.length === 0}
-        className="w-full py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 disabled:from-gray-600 disabled:to-gray-700 rounded-lg font-semibold text-white transition-all duration-300 flex items-center justify-center gap-2 disabled:cursor-not-allowed"
-      >
-        {isAnalyzing ? (
-          <>
-            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-            Analyzing NASA Data...
-          </>
-        ) : (
-          <>
-            <Satellite className="w-5 h-5" />
-            Analyze Weather Probability
-          </>
-        )}
-      </button>
+     <button 
+  onClick={analyzeWeather}
+  disabled={isAnalyzing || selectedVariables.length === 0}
+  className="w-full py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 disabled:from-gray-600 disabled:to-gray-700 rounded-lg font-semibold text-white transition-all duration-300 flex items-center justify-center gap-2 disabled:cursor-not-allowed"
+>
+  {isAnalyzing ? (
+    <>
+      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+      Analyzing NASA Data...
+    </>
+  ) : (
+    <>
+      <Satellite className="w-5 h-5" />
+      Analyze Weather Probability
+    </>
+  )}
+</button>
+
+{/* Add this directly under it */}
+<div className="mt-3 text-center">
+  <button
+    onClick={() => onOpenSatellite && onOpenSatellite()}
+    className="px-4 py-2 bg-purple-600/20 border border-purple-500/40 rounded-lg text-purple-300 hover:bg-purple-600/30 transition-all text-sm"
+  >
+    🌍 View NASA Satellite Map
+  </button>
+</div>
+
 
       {/* Results Display */}
       {analysisResults.length > 0 && (
         <div className="mt-6 space-y-4">
           <h4 className="text-lg font-semibold text-cyan-400">Analysis Results</h4>
-          
-          {/* Graphs Section */}
-          {showGraph && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              {selectedVariables.map(variable => {
-                const variableData = weatherVariables.find(v => v.id === variable);
-                if (!variableData?.graphData) return null;
-                
-                return (
-                  <div key={variable} className="bg-gray-700/40 rounded-xl p-4 border border-cyan-500/20">
-                    <SimpleBarChart
-                      data={variableData.graphData}
-                      title={variableData.name}
-                      unit={variableData.unit}
-                      optimal={variableData.graphData[0]?.optimal}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Probability Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {analysisResults.map((result, index) => {
               const probabilityLevel = result.probability >= 70 ? 'high' : 

@@ -5,6 +5,7 @@ import HomePage from './pages/HomePage';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Dashboard from './components/Dashboard';
+import LeafletMap from "./components/LeafletMap";
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState('home');
@@ -76,7 +77,9 @@ export default function App() {
     };
     handleLogin(demoUser);
   };
-
+ const handleLocationSelect = (loc) => {
+    console.log("Location selected:", loc);
+  }; 
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900">
       {currentPage !== 'login' && currentPage !== 'signup' && (
