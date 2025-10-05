@@ -4,8 +4,12 @@ from flask_cors import CORS
 from extensions import db,jwt
 from app.routes.user import auth_bp
 from app.routes.dashboard import dashboard_bp
+<<<<<<< HEAD
+from app.routes.prediction import prediction_bp
+=======
 from app.config import DevConfig
 
+>>>>>>> 9b88001d0317c4d5546aab9695fbef673a69b70a
 
 
 def create_app():
@@ -28,6 +32,7 @@ def create_app():
     # Register blueprints
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(dashboard_bp, url_prefix="/dashboard")
+    app.register_blueprint(prediction_bp, url_prefix="/prediction")
 
     with app.app_context():
         db.create_all()
