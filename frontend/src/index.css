@@ -2,3 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 @import "leaflet/dist/leaflet.css";
+ @keyframes gradient-x {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.animate-gradient-x {
+  background-size: 400% 400%;
+  animation: gradient-x 8s ease infinite;
+}
+
+.animate-spin-slower {
+  animation: spin 20s linear infinite;
+}
