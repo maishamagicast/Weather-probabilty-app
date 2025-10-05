@@ -53,18 +53,24 @@ const formatDateForNASA = (date) => {
 
     setIsAnalyzing(true);
 
-    try {
-      const payload = {
-        latitude,
-        longitude,
-        month: selectedDate.getMonth() + 1,
-        day: selectedDate.getDate(),
-        year: selectedDate.getFullYear(),
-      };
+  try {
+    // Prepare payload
+    const payload = {
+      latitude: user?.location?.lat || 0,
+      longitude: user?.location?.lon || 0,
+      month: selectedDate.getMonth() + 1,
+      day: selectedDate.getDate(),
+      year: selectedDate.getFullYear(), // optional; used for logging maybe
+      query: {}
+    };
 
-<<<<<<< HEAD
-      console.log("🛰️ Fetching NASA historical data with payload:", payload);
-=======
+    // Map thresholds into payload.query
+    thresholds.forEach(threshold => {
+      const key = threshold.variable;
+      const queryValue = `${threshold.value}:${threshold.operator}`;
+      payload.query[key] = queryValue;
+    });
+
     // POST to backend
     const res = await fetch("https://weather-probabilty-app.onrender.com/dashboard/analysis-results", {
       method: "POST",
@@ -73,72 +79,12 @@ const formatDateForNASA = (date) => {
       },
       body: JSON.stringify(payload)
     });
->>>>>>> f86736936aed84bbb0e75744adf55262d8a765a4
 
-      const res = await dashboardAPI.getNasaData(payload);
+    const responseData = await res.json();
 
-      console.log("📡 Raw NASA API response:", res);
-
-      if (res.success && res.data) {
-        const results = selectedVariables.map(variableId => {
-          const variableInfo = weatherVariables.find(v => v.id === variableId);
-          const historicalValues = res.data[variableId] || [];
-
-          const mean = historicalValues.length > 0
-            ? Math.round(historicalValues.reduce((sum, v) => sum + v.value, 0) / historicalValues.length)
-            : null;
-
-          const thresholdObj = thresholds.find(t => t.variable === variableId);
-
-          return {
-            variable: variableId,
-            probability: null,
-            mean,
-            threshold: thresholdObj?.value || 30,
-            operator: thresholdObj?.operator || 'above',
-            historicalData: historicalValues,
-            variableInfo,
-          };
-        });
-
-        setAnalysisResults(results);
-        console.log("✅ Processed historical results:", results);
-      } else {
-        console.error("❌ Failed to fetch NASA data. Response error:", res.error || "Unknown error");
-      }
-    } catch (error) {
-      console.error("💥 Exception occurred while fetching NASA data:", error);
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
-
-  // Analyze weather against thresholds
-  const analyzeWeather = async () => {
-    setIsAnalyzing(true);
-
-    try {
-      const payload = {
-        latitude: latitude || 0,
-        longitude: longitude || 0,
-        start_date: formatDateForNASA(selectedDate),  // "2025-10-05" → "20251005"
-        end_date: formatDateForNASA(selectedDate),
-        thresholds: {},
-      };
-
-      thresholds.forEach(t => {
-        if (selectedVariables.includes(t.variable)) {
-          payload.thresholds[t.variable] = { value: t.value, operator: t.operator };
-        }
-      });
-
-      console.log("🛰️ Sending payload for weather analysis:", payload);
-
-      const res = await dashboardAPI.getAnalysisResults(payload);
-      console.log("📡 Raw analysis API response:", res);
-
-      if (res.success && res.data) {
-        const data = res.data.data ? JSON.parse(res.data.data) : res.data;
+    if (res.ok) {
+      // You might need to adapt this depending on your backend response
+      const data = JSON.parse(responseData.data);
 
         const results = Object.entries(data).map(([variable, probability]) => {
           const variableInfo = weatherVariables.find(v => v.id === variable);
