@@ -62,7 +62,18 @@ const formatDateForNASA = (date) => {
         year: selectedDate.getFullYear(),
       };
 
+<<<<<<< HEAD
       console.log("🛰️ Fetching NASA historical data with payload:", payload);
+=======
+    // POST to backend
+    const res = await fetch("https://weather-probabilty-app.onrender.com/dashboard/analysis-results", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+>>>>>>> f86736936aed84bbb0e75744adf55262d8a765a4
 
       const res = await dashboardAPI.getNasaData(payload);
 
