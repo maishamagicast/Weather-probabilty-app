@@ -3,6 +3,8 @@ import {
   BarChart3, Thermometer, CloudRain, Droplets, Wind, 
   Download, FileText, ChevronDown, ChevronUp, X, Satellite 
 } from 'lucide-react';
+import { dashboardAPI } from '../services/requests'; 
+// import axiosInstance from '../services/axios';
 
 const WeatherAnalysisPanel = ({ user }) => {
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -70,42 +72,89 @@ const WeatherAnalysisPanel = ({ user }) => {
     newThresholds[index][field] = value;
     setThresholds(newThresholds);
   };
+//get_nasa_5yr_data
+const fetchHistoricalData = async () => {
+  if (!user?.location) return;
 
- const analyzeWeather = async () => {
   setIsAnalyzing(true);
 
   try {
-    // Prepare payload
+    const payload = {
+      latitude: user.location.lat,
+      longitude: user.location.lon,
+      month: selectedDate.getMonth() + 1, // JS months are 0-indexed
+      day: selectedDate.getDate(),
+      year: selectedDate.getFullYear(),
+    };
+
+    console.log("🛰️ Fetching NASA historical data:", payload);
+
+    const res = await dashboardAPI.getNasaData(payload);
+
+    if (res.success && res.data) {
+      // res.data assumed to be { temperature: [...], precipitation: [...], ... }
+      const results = selectedVariables.map((variableId) => {
+        const variableInfo = weatherVariables.find(v => v.id === variableId);
+        const historicalValues = res.data[variableId] || [];
+
+        const mean =
+          historicalValues.length > 0
+            ? Math.round(
+                historicalValues.reduce((sum, v) => sum + v.value, 0) / historicalValues.length
+              )
+            : null;
+
+        const thresholdObj = thresholds.find(t => t.variable === variableId);
+
+        return {
+          variable: variableId,
+          probability: null, // will be filled by analyzeWeather later
+          mean,
+          threshold: thresholdObj?.value || 30,
+          operator: thresholdObj?.operator || 'above',
+          historicalData: historicalValues,
+          variableInfo,
+        };
+      });
+
+      setAnalysisResults(results);
+      console.log("✅ Historical data loaded:", results);
+    } else {
+      console.error("❌ Failed to fetch NASA data:", res.error);
+    }
+  } catch (error) {
+    console.error("💥 Error fetching NASA data:", error);
+  }
+
+  setIsAnalyzing(false);
+};
+
+//get_threshold_data
+const analyzeWeather = async () => {
+  setIsAnalyzing(true);
+
+  try {
     const payload = {
       latitude: user?.location?.lat || 0,
       longitude: user?.location?.lon || 0,
-      month: selectedDate.getMonth() + 1,
-      day: selectedDate.getDate(),
-      year: selectedDate.getFullYear(), // optional; used for logging maybe
-      query: {}
+      start_date: selectedDate.toISOString().split('T')[0],
+      end_date: selectedDate.toISOString().split('T')[0],
     };
 
-    // Map thresholds into payload.query
-    thresholds.forEach(threshold => {
-      const key = threshold.variable;
-      const queryValue = `${threshold.value}:${threshold.operator}`;
-      payload.query[key] = queryValue;
+    // Attach thresholds (e.g., temperature, humidity)
+    thresholds.forEach((t) => {
+      payload[t.variable] = { value: t.value, operator: t.operator };
     });
 
-    // POST to backend
-    const res = await fetch("https://weather-probabilty-app.onrender.com/dashboard/analysis-result", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(payload)
-    });
+    console.log("🛰️ Sending payload to API:", payload);
 
-    const responseData = await res.json();
+    // ✅ Use your centralized API layer instead of axios directly
+    const res = await dashboardAPI.getAnalysisResults(payload);
 
-    if (res.ok) {
-      // You might need to adapt this depending on your backend response
-      const data = JSON.parse(responseData.data);
+    console.log("✅ Server response:", res);
+
+    if (res.success && res.data) {
+      const data = res.data.data ? JSON.parse(res.data.data) : res.data;
 
       const results = Object.entries(data).map(([variable, probability]) => {
         const variableInfo = weatherVariables.find(v => v.id === variable);
@@ -114,20 +163,20 @@ const WeatherAnalysisPanel = ({ user }) => {
         return {
           variable,
           probability: parseInt(probability),
-          mean: null, // backend doesn't send this (yet)
+          mean: null,
           threshold: threshold?.value || 30,
           operator: threshold?.operator || 'above',
-          historicalData: [], // You can extend backend to provide this
-          variableInfo
+          historicalData: [],
+          variableInfo,
         };
       });
 
       setAnalysisResults(results);
     } else {
-      console.error("Backend error:", responseData.error);
+      console.error("❌ Backend error:", res.error);
     }
   } catch (error) {
-    console.error("Error fetching weather data:", error);
+    console.error("💥 Error fetching weather data:", error);
   }
 
   setIsAnalyzing(false);
@@ -323,7 +372,7 @@ const WeatherAnalysisPanel = ({ user }) => {
   )}
 </button>
 
-{/* Add this directly under it */}
+{/* Add this directly under it
 <div className="mt-3 text-center">
   <button
     onClick={() => onOpenSatellite && onOpenSatellite()}
@@ -331,7 +380,7 @@ const WeatherAnalysisPanel = ({ user }) => {
   >
     🌍 View NASA Satellite Map
   </button>
-</div>
+</div> */}
 
 
       {/* Results Display */}
