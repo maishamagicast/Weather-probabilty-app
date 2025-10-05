@@ -19,6 +19,15 @@ function Dashboard({ user }) {
   const [graphModal, setGraphModal] = useState(false);
   const [graphType, setGraphType] = useState('bar');
   const [currentWeather, setCurrentWeather] = useState(null);
+  
+  // Analysis state
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [temperatureThreshold, setTemperatureThreshold] = useState('');
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [analysisResults, setAnalysisResults] = useState(null);
+  const [showAnalysisModal, setShowAnalysisModal] = useState(false);
+  
   const mapRef = useRef(null);
   const searchTimeoutRef = useRef(null);
 
@@ -238,8 +247,68 @@ function Dashboard({ user }) {
     if (e.target === e.currentTarget) {
       setActiveModal(null);
       setGraphModal(false);
+      setShowAnalysisModal(false);
     }
   }, []);
+
+  // Analysis function with CORS handling
+  const runWeatherAnalysis = async () => {
+    if (!selectedLocation) {
+      alert('Please select a location on the map first');
+      return;
+    }
+
+    if (!startDate || !endDate) {
+      alert('Please select both start and end dates');
+      return;
+    }
+
+    if (!temperatureThreshold) {
+      alert('Please enter a temperature threshold');
+      return;
+    }
+
+    setAnalysisLoading(true);
+    try {
+      const analysisData = {
+        latitude: selectedLocation.lat,
+        longitude: selectedLocation.lon,
+        temperature: temperatureThreshold,
+        start_date: startDate.replace(/-/g, ''), // Convert YYYY-MM-DD to YYYYMMDD
+        end_date: endDate.replace(/-/g, '')
+      };
+
+      // Use the correct endpoint without /auth
+      const API_URL = 'https://weather-probabilty-app.onrender.com/api/analysis-results';
+      
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        mode: 'cors',
+        body: JSON.stringify(analysisData)
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const results = await response.json();
+      setAnalysisResults(results);
+      setShowAnalysisModal(true);
+    } catch (err) {
+      console.error('Analysis error:', err);
+      setAnalysisResults({
+        success: false,
+        message: `Failed to fetch analysis data: ${err.message}. Please check if the backend server is running and CORS is configured.`
+      });
+      setShowAnalysisModal(true);
+    } finally {
+      setAnalysisLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -344,6 +413,45 @@ function Dashboard({ user }) {
                 </p>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Analysis Results Modal */}
+      {showAnalysisModal && analysisResults && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+          onClick={handleBackdropClick}
+        >
+          <div className={`w-full max-w-4xl ${currentTheme.modal} rounded-2xl border-2 border-cyan-500/30 p-6 shadow-2xl backdrop-blur-sm`}>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-cyan-400 font-bold text-xl flex items-center gap-3">
+                <BarChart3 className="w-6 h-6" />
+                Weather Analysis Report
+              </h2>
+              <button 
+                onClick={() => setShowAnalysisModal(false)} 
+                className="text-cyan-400 hover:text-cyan-300 p-2 transition-colors rounded-lg hover:bg-cyan-400/10"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className={`rounded-xl p-4 mb-4 ${
+              analysisResults.success ? 'bg-green-500/20 border-green-500/30' : 'bg-red-500/20 border-red-500/30'
+            } border`}>
+              <p className={analysisResults.success ? 'text-green-400' : 'text-red-400'}>
+                {analysisResults.message}
+              </p>
+            </div>
+            
+            {analysisResults.data && (
+              <div className={`rounded-xl p-4 ${darkMode ? 'bg-gray-800/50' : 'bg-gray-100/50'} border border-cyan-500/20`}>
+                <pre className="text-sm whitespace-pre-wrap">
+                  {JSON.stringify(analysisResults.data, null, 2)}
+                </pre>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -555,6 +663,81 @@ function Dashboard({ user }) {
                     </div>
                   )}
                   
+                  {/* Analysis Controls */}
+                  <div className={`mt-6 pt-6 border-t ${
+                    darkMode ? 'border-cyan-500/20' : 'border-cyan-400/20'
+                  }`}>
+                    <h4 className={`text-cyan-400 font-semibold mb-3 flex items-center gap-2`}>
+                      <BarChart3 className="w-4 h-4" />
+                      Weather Analysis
+                    </h4>
+                    
+                    <div className="space-y-3">
+                      {/* Date Pickers */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className={`text-xs ${currentTheme.text.muted} block mb-1`}>
+                            Start Date
+                          </label>
+                          <input
+                            type="date"
+                            value={startDate}
+                            onChange={(e) => setStartDate(e.target.value)}
+                            className={`w-full p-2 rounded-lg text-sm ${currentTheme.input}`}
+                          />
+                        </div>
+                        <div>
+                          <label className={`text-xs ${currentTheme.text.muted} block mb-1`}>
+                            End Date
+                          </label>
+                          <input
+                            type="date"
+                            value={endDate}
+                            onChange={(e) => setEndDate(e.target.value)}
+                            className={`w-full p-2 rounded-lg text-sm ${currentTheme.input}`}
+                          />
+                        </div>
+                      </div>
+                      
+                      {/* Temperature Threshold */}
+                      <div>
+                        <label className={`text-xs ${currentTheme.text.muted} block mb-1`}>
+                          Temperature Threshold (e.g., "30:above")
+                        </label>
+                        <input
+                          type="text"
+                          value={temperatureThreshold}
+                          onChange={(e) => setTemperatureThreshold(e.target.value)}
+                          placeholder="30:above or 20:below"
+                          className={`w-full p-2 rounded-lg text-sm ${currentTheme.input}`}
+                        />
+                      </div>
+                      
+                      {/* Run Analysis Button */}
+                      <button
+                        onClick={runWeatherAnalysis}
+                        disabled={analysisLoading || !selectedLocation}
+                        className={`w-full py-3 ${
+                          analysisLoading || !selectedLocation 
+                            ? 'bg-gray-500 cursor-not-allowed' 
+                            : currentTheme.button.primary
+                        } font-bold rounded-xl transition-transform hover:scale-105 shadow-lg flex items-center justify-center gap-2`}
+                      >
+                        {analysisLoading ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            Analyzing...
+                          </>
+                        ) : (
+                          <>
+                            <BarChart3 className="w-4 h-4" />
+                            View Analysis Report
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                  
                   <div className="space-y-4 text-sm">
                     <div className="flex justify-between items-center py-3 border-b border-cyan-500/20">
                       <span className={currentTheme.text.muted}>Ward:</span>
@@ -609,6 +792,15 @@ function Dashboard({ user }) {
             className={`px-6 py-3 ${currentTheme.button.primary} font-bold rounded-xl transition-transform hover:scale-105 shadow-lg`}
           >
             View Analytics
+          </button>
+          <button 
+            onClick={runWeatherAnalysis}
+            disabled={!selectedLocation}
+            className={`px-6 py-3 ${
+              !selectedLocation ? 'bg-gray-500 cursor-not-allowed' : currentTheme.button.primary
+            } font-bold rounded-xl transition-transform hover:scale-105 shadow-lg`}
+          >
+            Run Weather Analysis
           </button>
         </footer>
       </div>
