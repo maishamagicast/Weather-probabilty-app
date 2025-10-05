@@ -3,9 +3,8 @@ import {
   BarChart3, Thermometer, CloudRain, Droplets, Wind, 
   Download, FileText, ChevronDown, ChevronUp, X, Satellite 
 } from 'lucide-react';
-import { dashboardAPI } from '../services/requests';
 
-const WeatherAnalysisPanel = ({ user, latitude, longitude }) => {
+const WeatherAnalysisPanel = ({ user }) => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedVariables, setSelectedVariables] = useState(['temperature']);
   const [thresholds, setThresholds] = useState([
@@ -14,44 +13,66 @@ const WeatherAnalysisPanel = ({ user, latitude, longitude }) => {
   const [analysisResults, setAnalysisResults] = useState([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [expandedResult, setExpandedResult] = useState(null);
-const formatDateForNASA = (date) => {
-  // Ensure it's a Date object → convert to ISO string → "YYYY-MM-DD" → remove dashes
-  return new Date(date).toISOString().split("T")[0].replace(/-/g, "");
-};
 
   const weatherVariables = [
-    { id: 'temperature', name: 'Temperature', unit: '°C', icon: Thermometer, description: 'Average daily temperature' },
-    { id: 'precipitation', name: 'Precipitation', unit: 'mm', icon: CloudRain, description: 'Daily rainfall amount' },
-    { id: 'humidity', name: 'Humidity', unit: '%', icon: Droplets, description: 'Relative humidity percentage' },
-    { id: 'wind', name: 'Wind Speed', unit: 'm/s', icon: Wind, description: 'Average wind speed' }
+    { 
+      id: 'temperature', 
+      name: 'Temperature', 
+      unit: '°C', 
+      icon: Thermometer,
+      description: 'Average daily temperature'
+    },
+    { 
+      id: 'precipitation', 
+      name: 'Precipitation', 
+      unit: 'mm', 
+      icon: CloudRain,
+      description: 'Daily rainfall amount'
+    },
+    { 
+      id: 'humidity', 
+      name: 'Humidity', 
+      unit: '%', 
+      icon: Droplets,
+      description: 'Relative humidity percentage'
+    },
+    { 
+      id: 'wind', 
+      name: 'Wind Speed', 
+      unit: 'm/s', 
+      icon: Wind,
+      description: 'Average wind speed'
+    }
   ];
 
   const handleVariableToggle = (variableId) => {
-    setSelectedVariables(prev => 
-      prev.includes(variableId) ? prev.filter(v => v !== variableId) : [...prev, variableId]
-    );
+    if (selectedVariables.includes(variableId)) {
+      setSelectedVariables(selectedVariables.filter(v => v !== variableId));
+    } else {
+      setSelectedVariables([...selectedVariables, variableId]);
+    }
   };
 
   const addThreshold = () => {
     if (weatherVariables.length === 0) return;
-    setThresholds(prev => [...prev, { variable: weatherVariables[0].id, value: 30, operator: 'above' }]);
+    setThresholds([
+      ...thresholds,
+      { variable: weatherVariables[0].id, value: 30, operator: 'above' },
+    ]);
   };
 
-  const removeThreshold = (index) => setThresholds(prev => prev.filter((_, i) => i !== index));
+  const removeThreshold = (index) => {
+    setThresholds(thresholds.filter((_, i) => i !== index));
+  };
 
   const updateThreshold = (index, field, value) => {
-    setThresholds(prev => {
-      const newThresholds = [...prev];
-      newThresholds[index][field] = value;
-      return newThresholds;
-    });
+    const newThresholds = [...thresholds];
+    newThresholds[index][field] = value;
+    setThresholds(newThresholds);
   };
 
-  // Fetch NASA 5-year historical data
-  const fetchHistoricalData = async () => {
-    if (!user?.location) return;
-
-    setIsAnalyzing(true);
+ const analyzeWeather = async () => {
+  setIsAnalyzing(true);
 
   try {
     // Prepare payload
@@ -86,34 +107,33 @@ const formatDateForNASA = (date) => {
       // You might need to adapt this depending on your backend response
       const data = JSON.parse(responseData.data);
 
-        const results = Object.entries(data).map(([variable, probability]) => {
-          const variableInfo = weatherVariables.find(v => v.id === variable);
-          const threshold = thresholds.find(t => t.variable === variable);
+      const results = Object.entries(data).map(([variable, probability]) => {
+        const variableInfo = weatherVariables.find(v => v.id === variable);
+        const threshold = thresholds.find(t => t.variable === variable);
 
-          return {
-            variable,
-            probability: parseInt(probability),
-            mean: null,
-            threshold: threshold?.value || 30,
-            operator: threshold?.operator || 'above',
-            historicalData: [],
-            variableInfo,
-          };
-        });
+        return {
+          variable,
+          probability: parseInt(probability),
+          mean: null, // backend doesn't send this (yet)
+          threshold: threshold?.value || 30,
+          operator: threshold?.operator || 'above',
+          historicalData: [], // You can extend backend to provide this
+          variableInfo
+        };
+      });
 
-        setAnalysisResults(results);
-        console.log("✅ Analysis results processed:", results);
-      } else {
-        console.error("❌ Backend returned an error:", res.error || "Unknown error");
-      }
-    } catch (error) {
-      console.error("💥 Exception occurred while analyzing weather:", error);
-    } finally {
-      setIsAnalyzing(false);
+      setAnalysisResults(results);
+    } else {
+      console.error("Backend error:", responseData.error);
     }
-  };
+  } catch (error) {
+    console.error("Error fetching weather data:", error);
+  }
 
-  // Export results to JSON or CSV
+  setIsAnalyzing(false);
+};
+
+
   const exportData = (format) => {
     const data = {
       location: user?.location,
@@ -123,16 +143,17 @@ const formatDateForNASA = (date) => {
     };
 
     let content, mimeType, extension;
-
+    
     if (format === 'json') {
       content = JSON.stringify(data, null, 2);
       mimeType = 'application/json';
       extension = 'json';
     } else {
+      // CSV format
       let csv = 'Variable,Probability (%),Mean,Threshold,Operator,Year,Value\n';
       analysisResults.forEach(result => {
-        result.historicalData.forEach(h => {
-          csv += `${result.variableInfo.name},${result.probability},${result.mean},${result.threshold},${result.operator},${h.year},${h.value}\n`;
+        result.historicalData.forEach(historical => {
+          csv += `${result.variableInfo.name},${result.probability},${result.mean},${result.threshold},${result.operator},${historical.year},${historical.value}\n`;
         });
       });
       content = csv;
@@ -153,7 +174,6 @@ const formatDateForNASA = (date) => {
 
   return (
     <div className="bg-gray-800/60 backdrop-blur-xl rounded-2xl border border-cyan-500/20 p-6 mb-6">
-      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-xl font-bold text-cyan-400 flex items-center gap-2">
           <BarChart3 className="w-5 h-5" />
@@ -161,30 +181,48 @@ const formatDateForNASA = (date) => {
         </h3>
         {analysisResults.length > 0 && (
           <div className="flex gap-2">
-            <button onClick={() => exportData('csv')} className="px-4 py-2 bg-green-500/20 border border-green-500/30 rounded-lg text-green-400 hover:bg-green-500/30 transition-colors flex items-center gap-2">
-              <Download className="w-4 h-4" /> CSV
+            <button
+              onClick={() => exportData('csv')}
+              className="px-4 py-2 bg-green-500/20 border border-green-500/30 rounded-lg text-green-400 hover:bg-green-500/30 transition-colors flex items-center gap-2"
+            >
+              <Download className="w-4 h-4" />
+              CSV
             </button>
-            <button onClick={() => exportData('json')} className="px-4 py-2 bg-blue-500/20 border border-blue-500/30 rounded-lg text-blue-400 hover:bg-blue-500/30 transition-colors flex items-center gap-2">
-              <FileText className="w-4 h-4" /> JSON
+            <button
+              onClick={() => exportData('json')}
+              className="px-4 py-2 bg-blue-500/20 border border-blue-500/30 rounded-lg text-blue-400 hover:bg-blue-500/30 transition-colors flex items-center gap-2"
+            >
+              <FileText className="w-4 h-4" />
+              JSON
             </button>
           </div>
         )}
       </div>
-
-      {/* Variables & Thresholds */}
+      
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        {/* Weather Variables */}
+        {/* Weather Variables Selection */}
         <div>
           <label className="block text-sm font-medium text-cyan-300 mb-3">Weather Variables</label>
           <div className="space-y-2">
             {weatherVariables.map(variable => {
-              const Icon = variable.icon;
+              const IconComponent = variable.icon;
               const isSelected = selectedVariables.includes(variable.id);
+              
               return (
-                <div key={variable.id} className={`p-3 rounded-lg border cursor-pointer transition-all ${isSelected ? 'bg-cyan-500/20 border-cyan-500/50' : 'bg-gray-700/50 border-gray-600 hover:bg-gray-600/50'}`} onClick={() => handleVariableToggle(variable.id)}>
+                <div
+                  key={variable.id}
+                  className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                    isSelected
+                      ? 'bg-cyan-500/20 border-cyan-500/50'
+                      : 'bg-gray-700/50 border-gray-600 hover:bg-gray-600/50'
+                  }`}
+                  onClick={() => handleVariableToggle(variable.id)}
+                >
                   <div className="flex items-center gap-3">
-                    <div className={`w-3 h-3 rounded-full ${isSelected ? 'bg-cyan-400' : 'bg-gray-500'}`} />
-                    <Icon className="w-4 h-4 text-cyan-300" />
+                    <div className={`w-3 h-3 rounded-full ${
+                      isSelected ? 'bg-cyan-400' : 'bg-gray-500'
+                    }`} />
+                    <IconComponent className="w-4 h-4 text-cyan-300" />
                     <div className="flex-1">
                       <span className="text-white">{variable.name}</span>
                       <p className="text-cyan-300/70 text-xs">{variable.description}</p>
@@ -197,36 +235,68 @@ const formatDateForNASA = (date) => {
           </div>
         </div>
 
-        {/* Thresholds */}
+        {/* Analysis Configuration */}
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-cyan-300 mb-2">Analysis Date (Day of Year)</label>
-            <input type="date" value={selectedDate.toISOString().split('T')[0]} onChange={(e) => setSelectedDate(new Date(e.target.value))} className="w-full p-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white focus:border-cyan-500 focus:outline-none" />
+            <label className="block text-sm font-medium text-cyan-300 mb-2">
+              Analysis Date (Day of Year)
+            </label>
+            <input
+              type="date"
+              value={selectedDate.toISOString().split('T')[0]}
+              onChange={(e) => setSelectedDate(new Date(e.target.value))}
+              className="w-full p-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white focus:border-cyan-500 focus:outline-none"
+            />
             <p className="text-cyan-300/70 text-xs mt-1">
-              Day {Math.floor((selectedDate - new Date(selectedDate.getFullYear(), 0, 0)) / (1000*60*60*24))} of {selectedDate.getFullYear()}
+              Day {Math.floor((selectedDate - new Date(selectedDate.getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24))} of {selectedDate.getFullYear()}
             </p>
           </div>
-
+          
           <div>
             <div className="flex items-center justify-between mb-3">
               <label className="block text-sm font-medium text-cyan-300">Probability Thresholds</label>
-              <button onClick={addThreshold} className="px-3 py-1 bg-cyan-500/20 border border-cyan-500/30 rounded text-cyan-400 text-sm hover:bg-cyan-500/30 transition-colors">+ Add Threshold</button>
+              <button
+                onClick={addThreshold}
+                className="px-3 py-1 bg-cyan-500/20 border border-cyan-500/30 rounded text-cyan-400 text-sm hover:bg-cyan-500/30 transition-colors"
+              >
+                + Add Threshold
+              </button>
             </div>
             <div className="space-y-2">
               {thresholds.map((threshold, index) => {
                 const variable = weatherVariables.find(v => v.id === threshold.variable);
                 return (
                   <div key={index} className="flex gap-2 items-center p-3 bg-gray-700/30 rounded-lg border border-gray-600">
-                    <select value={threshold.variable} onChange={(e) => updateThreshold(index, 'variable', e.target.value)} className="flex-1 p-2 bg-gray-600/50 border border-gray-500 rounded text-white text-sm">
-                      {weatherVariables.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                    <select
+                      value={threshold.variable}
+                      onChange={(e) => updateThreshold(index, 'variable', e.target.value)}
+                      className="flex-1 p-2 bg-gray-600/50 border border-gray-500 rounded text-white text-sm"
+                    >
+                      {weatherVariables.map(v => (
+                        <option key={v.id} value={v.id}>{v.name}</option>
+                      ))}
                     </select>
-                    <select value={threshold.operator} onChange={(e) => updateThreshold(index, 'operator', e.target.value)} className="w-24 p-2 bg-gray-600/50 border border-gray-500 rounded text-white text-sm">
+                    <select
+                      value={threshold.operator}
+                      onChange={(e) => updateThreshold(index, 'operator', e.target.value)}
+                      className="w-24 p-2 bg-gray-600/50 border border-gray-500 rounded text-white text-sm"
+                    >
                       <option value="above">Above</option>
                       <option value="below">Below</option>
                     </select>
-                    <input type="number" value={threshold.value} onChange={(e) => updateThreshold(index, 'value', parseFloat(e.target.value))} className="w-20 p-2 bg-gray-600/50 border border-gray-500 rounded text-white text-sm" />
+                    <input
+                      type="number"
+                      value={threshold.value}
+                      onChange={(e) => updateThreshold(index, 'value', parseFloat(e.target.value))}
+                      className="w-20 p-2 bg-gray-600/50 border border-gray-500 rounded text-white text-sm"
+                    />
                     <span className="text-cyan-300/70 text-sm px-2">{variable?.unit}</span>
-                    <button onClick={() => removeThreshold(index)} className="p-1 text-red-400 hover:text-red-300 transition-colors"><X className="w-4 h-4" /></button>
+                    <button
+                      onClick={() => removeThreshold(index)}
+                      className="p-1 text-red-400 hover:text-red-300 transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
                   </div>
                 );
               })}
@@ -235,26 +305,25 @@ const formatDateForNASA = (date) => {
         </div>
       </div>
 
-      {/* Analyze Button */}
-      <button 
-        onClick={analyzeWeather} 
-        disabled={isAnalyzing || selectedVariables.length === 0}
-        className="w-full py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 disabled:from-gray-600 disabled:to-gray-700 rounded-lg font-semibold text-white transition-all duration-300 flex items-center justify-center gap-2 disabled:cursor-not-allowed"
-      >
-        {isAnalyzing ? (
-          <>
-            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-            Analyzing NASA Data...
-          </>
-        ) : (
-          <>
-            <Satellite className="w-5 h-5" />
-            Analyze Weather Probability
-          </>
-        )}
-      </button>
+     <button 
+  onClick={analyzeWeather}
+  disabled={isAnalyzing || selectedVariables.length === 0}
+  className="w-full py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 disabled:from-gray-600 disabled:to-gray-700 rounded-lg font-semibold text-white transition-all duration-300 flex items-center justify-center gap-2 disabled:cursor-not-allowed"
+>
+  {isAnalyzing ? (
+    <>
+      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+      Analyzing NASA Data...
+    </>
+  ) : (
+    <>
+      <Satellite className="w-5 h-5" />
+      Analyze Weather Probability
+    </>
+  )}
+</button>
 
-{/* Add this directly under it
+{/* Add this directly under it */}
 <div className="mt-3 text-center">
   <button
     onClick={() => onOpenSatellite && onOpenSatellite()}
@@ -262,7 +331,7 @@ const formatDateForNASA = (date) => {
   >
     🌍 View NASA Satellite Map
   </button>
-</div> */}
+</div>
 
 
       {/* Results Display */}
@@ -287,8 +356,8 @@ const formatDateForNASA = (date) => {
                 >
                   <div className="flex justify-between items-center mb-2">
                     <div className="flex items-center gap-2">
-                      {/* <result.variableInfo.icon className="w-4 h-4 text-white" /> */}
-                      {/* <span className="text-white font-semibold">{result.variableInfo.name}</span> */}
+                      <result.variableInfo.icon className="w-4 h-4 text-white" />
+                      <span className="text-white font-semibold">{result.variableInfo.name}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className={`px-2 py-1 rounded text-sm font-bold ${
@@ -353,5 +422,3 @@ const formatDateForNASA = (date) => {
 };
 
 export default WeatherAnalysisPanel;
-
-
