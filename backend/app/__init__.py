@@ -4,6 +4,8 @@ from flask_cors import CORS
 from extensions import db
 from app.routes.user import auth_bp
 from app.routes.dashboard import dashboard_bp
+from app.routes.prediction import prediction_bp
+
 
 def create_app():
     app = Flask(__name__)
@@ -24,6 +26,7 @@ def create_app():
     # Register blueprints
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(dashboard_bp, url_prefix="/dashboard")
+    app.register_blueprint(prediction_bp, url_prefix="/prediction")
 
     with app.app_context():
         db.create_all()
