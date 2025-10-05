@@ -1,6 +1,6 @@
 // src/components/Dashboard.jsx
 import React, { useState, useRef, useEffect } from 'react';
-import { Satellite, MapPin, RefreshCw, Map, X } from 'lucide-react';
+import { Satellite, MapPin, RefreshCw, Map, X, BarChart3, LineChart } from 'lucide-react';
 import { weatherAPI } from '../services/api';
 import WeatherAnalysisPanel from './WeatherAnalysisPanel';
 import LeafletMap from './LeafletMap';
@@ -13,6 +13,8 @@ function Dashboard({ user }) {
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [graphModal, setGraphModal] = useState(false);
+  const [graphType, setGraphType] = useState('bar'); // default
   const mapRef = useRef(null);
 
   useEffect(() => { loadWeatherData(); }, [user]);
@@ -30,15 +32,11 @@ function Dashboard({ user }) {
     } finally { setLoading(false); }
   };
 
-  const handleLocationSelect = (loc) => {
-    setSelectedLocation(loc);
-  };
+  const handleLocationSelect = (loc) => { setSelectedLocation(loc); };
 
-  // Simple search that uses Nominatim, but Dashboard does not need to search — we rely on InteractiveMap for advanced search.
   const onSearchSubmit = async () => {
     if (!searchQuery.trim()) return;
     try {
-      // quick search using Nominatim (limit 1)
       const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=${encodeURIComponent(searchQuery)}&limit=1`;
       const res = await fetch(url, { headers: { "Accept-Language": "en" } });
       const data = await res.json();
@@ -49,7 +47,7 @@ function Dashboard({ user }) {
         const loc = { lat: parseFloat(d.lat), lon: parseFloat(d.lon), placeName, ward: addr.ward || addr.neighbourhood || "", townOrCity: addr.city || addr.town || addr.village || "", county: addr.county || addr.state_district || addr.region || addr.state || "", country: addr.country || "", display_name: d.display_name, raw: addr };
         setSelectedLocation(loc);
       } else {
-        alert("Location not found from Dashboard search.");
+        alert("Location not found.");
       }
     } catch (err) {
       console.error("Search failed", err);
@@ -69,11 +67,12 @@ function Dashboard({ user }) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 text-white">
+    <div className="w-full min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 text-white font-orbitron overflow-x-hidden flex flex-col">
+      
       {/* Satellite modal */}
       {activeModal === 'satellite' && (
         <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4">
-          <div className="w-full max-w-5xl bg-gray-900/95 rounded-2xl border border-cyan-500/20 overflow-hidden">
+          <div className="w-full max-w-6xl bg-gray-900/95 rounded-2xl border border-cyan-500/20 overflow-hidden shadow-xl">
             <div className="flex items-center justify-between p-3 border-b border-cyan-500/20">
               <div className="text-lg font-bold text-cyan-400 flex items-center gap-2"><Map className="w-5 h-5" />NASA Satellite</div>
               <button onClick={() => setActiveModal(null)} className="text-cyan-400 hover:text-cyan-300 p-1"><X className="w-6 h-6" /></button>
@@ -85,8 +84,31 @@ function Dashboard({ user }) {
         </div>
       )}
 
-      <div className="container mx-auto px-4 py-6">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6 gap-4">
+      {/* Graph modal */}
+      {graphModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+          <div className="w-full max-w-4xl bg-gray-900/95 rounded-2xl border border-cyan-500/20 p-4 shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-cyan-400 font-bold text-lg flex items-center gap-2">
+                <BarChart3 className="w-5 h-5" /> {graphType === 'bar' ? 'Bar Graph' : 'Line Graph'} (10-Year Data)
+              </h2>
+              <button onClick={() => setGraphModal(false)} className="text-cyan-400 hover:text-cyan-300 p-1"><X className="w-6 h-6" /></button>
+            </div>
+            <div className="flex items-center gap-4 mb-4">
+              <button onClick={() => setGraphType('bar')} className={`px-4 py-2 rounded-lg ${graphType==='bar'?'bg-cyan-400 text-black':'bg-gray-800 text-cyan-300'}`}>Bar Graph</button>
+              <button onClick={() => setGraphType('line')} className={`px-4 py-2 rounded-lg ${graphType==='line'?'bg-cyan-400 text-black':'bg-gray-800 text-cyan-300'}`}>Line Graph</button>
+            </div>
+            <div className="h-64 bg-gray-800 rounded-lg flex items-center justify-center text-cyan-300">
+              Graph will be rendered here...
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="container mx-auto px-4 py-6 flex flex-col gap-6 flex-1">
+
+        {/* Header */}
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold mb-2">
               Welcome back, <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">{user?.name || 'Farmer'}!</span>
@@ -94,57 +116,61 @@ function Dashboard({ user }) {
             <div className="flex items-center gap-2 text-cyan-300/70 text-sm"><MapPin className="w-4 h-4" /><span>{user?.location || 'Your Farm Location'}</span></div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button onClick={loadWeatherData} className="px-3 py-2 bg-cyan-500/20 border border-cyan-500/30 rounded text-cyan-400"><RefreshCw className="w-4 h-4" /> Refresh</button>
-            <button onClick={() => setShowSearch(s => !s)} className="px-3 py-2 bg-cyan-500/20 border border-cyan-500/30 rounded text-cyan-400"><Map className="w-4 h-4" /> {showSearch ? 'Close search' : 'Search location'}</button>
-            <button onClick={() => setActiveModal('satellite')} className="px-3 py-2 bg-purple-500/20 border border-purple-500/30 rounded text-purple-400"><Satellite className="w-4 h-4" /> Satellite</button>
+          {/* Buttons Row */}
+          <div className="flex flex-wrap gap-2 items-center">
+            <button onClick={loadWeatherData} className="px-3 py-2 bg-gradient-to-r from-cyan-400 to-blue-400 text-black font-bold rounded-lg flex items-center gap-1"><RefreshCw className="w-4 h-4"/> Refresh</button>
+            <button onClick={() => setShowSearch(s => !s)} className="px-3 py-2 bg-gradient-to-r from-cyan-400 to-blue-400 text-black font-bold rounded-lg flex items-center gap-1"><Map className="w-4 h-4"/> {showSearch ? 'Close Search' : 'Search'}</button>
+            <button onClick={() => setActiveModal('satellite')} className="px-3 py-2 bg-gradient-to-r from-purple-400 to-pink-500 text-black font-bold rounded-lg flex items-center gap-1"><Satellite className="w-4 h-4"/> Satellite</button>
+            <button onClick={() => setGraphModal(true)} className="px-3 py-2 bg-cyan-400 text-black font-bold rounded-lg flex items-center gap-1"><BarChart3 className="w-4 h-4"/> View Results</button>
           </div>
         </div>
 
+        {/* Search */}
         {showSearch && (
-          <div className="mb-4 flex gap-2 max-w-xl">
-            <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Type a place name, address, or coordinates (lat, lon)" className="flex-1 p-2 rounded-lg bg-gray-800/50 border border-gray-700 text-white" />
-            <button onClick={onSearchSubmit} className="px-4 py-2 rounded-lg bg-cyan-500 hover:bg-cyan-600">Go</button>
+          <div className="flex gap-2 max-w-xl mb-4">
+            <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Place name, address, or lat,lon" className="flex-1 p-2 rounded-lg bg-gray-800/50 border border-cyan-500 text-white focus:outline-none focus:ring-2 focus:ring-cyan-400" />
+            <button onClick={onSearchSubmit} className="px-4 py-2 rounded-lg bg-gradient-to-r from-cyan-400 to-blue-400 text-black font-bold">Go</button>
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-2">
+        {/* Top Card: Map + Selected Location */}
+        <div className="flex flex-col lg:flex-row gap-4 min-h-[550px]">
+          {/* Map */}
+          <div className="flex-1 rounded-xl overflow-hidden shadow-xl border border-cyan-500/20">
             <LeafletMap selectedLocation={selectedLocation} onLocationSelect={handleLocationSelect} />
           </div>
 
-          <div className="space-y-4">
-            <div className="bg-gray-800/60 backdrop-blur-xl rounded-xl border border-cyan-500/20 p-4">
-              <h2 className="text-lg font-semibold text-cyan-400 mb-2">Selected Location</h2>
-              {!selectedLocation ? (
-                <p className="text-gray-400 text-sm">Click on the map or search a location to see details here.</p>
-              ) : (
-                <>
-                  <p className="text-sm text-white font-semibold">{selectedLocation.placeName || selectedLocation.display_name}</p>
-                  <p className="text-xs text-cyan-300/80 mb-2">{selectedLocation.lat?.toFixed?.(6)}, {selectedLocation.lon?.toFixed?.(6)}</p>
-
-                  <div className="text-sm space-y-1">
-                    <div><span className="text-cyan-300/80">Ward:</span> <span className="text-white">{selectedLocation.ward || '—'}</span></div>
-                    <div><span className="text-cyan-300/80">Town / City:</span> <span className="text-white">{selectedLocation.townOrCity || '—'}</span></div>
-                    <div><span className="text-cyan-300/80">County / District:</span> <span className="text-white">{selectedLocation.county || '—'}</span></div>
-                    <div><span className="text-cyan-300/80">Country:</span> <span className="text-white">{selectedLocation.country || '—'}</span></div>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <WeatherAnalysisPanel user={user} onViewSatellite={() => setActiveModal('satellite')} />
-
-            <div className="bg-gray-800/60 p-3 rounded-xl border border-cyan-500/20">
-              <h3 className="text-cyan-400 font-semibold mb-2">Quick Actions</h3>
-              <div className="grid grid-cols-2 gap-2">
-                <button onClick={() => setActiveModal('satellite')} className="p-2 bg-black/40 rounded border border-cyan-500/10 text-cyan-300">Open Satellite Map</button>
-                <button onClick={() => alert('Export not implemented in demo')} className="p-2 bg-black/40 rounded border border-cyan-500/10 text-cyan-300">Export Data</button>
-              </div>
-            </div>
-
+          {/* Selected Location + Thresholds */}
+          <div className="w-full lg:w-1/3 bg-gray-800/60 backdrop-blur-xl rounded-xl border border-cyan-500/20 p-4 shadow-xl flex flex-col justify-start overflow-auto">
+            <h2 className="text-lg font-semibold text-cyan-400 mb-2">Selected Location</h2>
+            {!selectedLocation ? (
+              <p className="text-gray-400 text-sm">Click on the map or search a location to see details here.</p>
+            ) : (
+              <>
+                <p className="text-sm text-white font-semibold">{selectedLocation.placeName || selectedLocation.display_name}</p>
+                <p className="text-xs text-cyan-300/80 mb-2">{selectedLocation.lat?.toFixed(6)}, {selectedLocation.lon?.toFixed(6)}</p>
+                <div className="text-sm space-y-1">
+                  <div><span className="text-cyan-300/80">Ward:</span> <span className="text-white">{selectedLocation.ward || '—'}</span></div>
+                  <div><span className="text-cyan-300/80">Town / City:</span> <span className="text-white">{selectedLocation.townOrCity || '—'}</span></div>
+                  <div><span className="text-cyan-300/80">County / District:</span> <span className="text-white">{selectedLocation.county || '—'}</span></div>
+                  <div><span className="text-cyan-300/80">Country:</span> <span className="text-white">{selectedLocation.country || '—'}</span></div>
+                </div>
+              </>
+            )}
           </div>
         </div>
+
+        {/* Middle Section: Weather Analysis */}
+        <div className="mt-4">
+          <WeatherAnalysisPanel user={user} onViewSatellite={() => setActiveModal('satellite')} />
+        </div>
+
+        {/* Quick Actions at Bottom */}
+        <div className="mt-6 flex justify-start gap-2">
+          <button onClick={() => setActiveModal('satellite')} className="p-2 bg-black/40 rounded border border-cyan-500/10 text-cyan-300 hover:scale-105 transition-transform">Open Satellite Map</button>
+          <button onClick={() => alert('Export not implemented')} className="p-2 bg-black/40 rounded border border-cyan-500/10 text-cyan-300 hover:scale-105 transition-transform">Export Data</button>
+        </div>
+
       </div>
     </div>
   );
