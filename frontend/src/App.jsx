@@ -5,7 +5,8 @@ import HomePage from './pages/HomePage';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Dashboard from './components/Dashboard';
-import { ThemeProvider,ThemeContext } from './theme/ThemeContext';
+import { ThemeProvider, ThemeContext } from './theme/ThemeContext';
+
 function App() {
   const [currentPage, setCurrentPage] = useState('home');
   const [isSignedIn, setIsSignedIn] = useState(false);
@@ -64,16 +65,17 @@ function App() {
     handleLogin(demoUser);
   };
 
-function App() {
   return (
     <ThemeProvider>
       <ThemeContext.Consumer>
         {({ darkMode }) => (
-          <div className={`flex flex-col min-h-screen transition-colors duration-300 ${
-            darkMode
-              ? 'bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900'
-              : 'bg-gradient-to-br from-green-50 via-yellow-50 to-rose-100'
-          }`}>
+          <div
+            className={`flex flex-col min-h-screen transition-colors duration-300 ${
+              darkMode
+                ? 'bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900'
+                : 'bg-gradient-to-br from-green-50 via-yellow-50 to-rose-100'
+            }`}
+          >
             {currentPage !== 'login' && currentPage !== 'signup' && (
               <NavBar
                 isSignedIn={isSignedIn}
