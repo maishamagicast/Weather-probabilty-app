@@ -93,7 +93,7 @@ const WeatherAnalysisPanel = ({ user }) => {
     });
 
     // POST to backend
-    const res = await fetch("https://weather-probabilty-app.onrender.com/dashboard/analysis-result", {
+    const res = await fetch("https://weather-probabilty-app.onrender.com/dashboard/analysis-results", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
