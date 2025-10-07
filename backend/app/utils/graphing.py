@@ -1,85 +1,87 @@
-from flask import Blueprint, request, jsonify
-from datetime import datetime
-from app.utils.geolocation import get_coordinates_from_place, validate_coordinates
-from app.utils.nasa_data import fetch_nasa_power_data
-from app.utils.predictor import compute_likelihoods
+import requests
+from collections import defaultdict
 
-dashboard_bp = Blueprint("dashboard", __name__)
+NASA_POWER_URL = "https://power.larc.nasa.gov/api/temporal/monthly/point"
 
-@dashboard_bp.route("/analyze", methods=["POST"])
-def analyze_weather():
+def fetch_weather_trends(lat, lon, start_date, end_date):
     """
-    Expected JSON:
-    {
-        "place": "Nairobi, Kenya",
-        "start_date": "2024-05-01",
-        "end_date": "2024-05-07",
-        "parameters": ["T2M", "WS2M", "PRECTOTCORR", "RH2M"]
-    }
+    Using NASA POWER Monthly API (as documented):
+    - start and end must be **year only**, e.g. 2020, 2022
+    - send valid monthly-aggregated parameter names
     """
+    print("DEBUG: Starting fetch_weather_trends")
+    print(f"Inputs: lat={lat}, lon={lon}, start_date={start_date}, end_date={end_date}")
+
+    # Parse only the year portion
     try:
-        data = request.get_json()
-        place = data.get("place")
-        start_date = datetime.strptime(data.get("start_date"), "%Y-%m-%d")
-        end_date = datetime.strptime(data.get("end_date"), "%Y-%m-%d")
-        parameters = data.get("parameters", ["T2M", "WS2M", "PRECTOTCORR", "RH2M"])
-
-        # 1️⃣ Convert place name → coordinates
-        lat, lon = get_coordinates_from_place(place)
-        validate_coordinates(lat, lon)
-
-        # 2️⃣ Fetch NASA weather data
-        nasa_json = fetch_nasa_power_data(lat, lon, start_date, end_date, parameters)
-        if "properties" not in nasa_json or "parameter" not in nasa_json["properties"]:
-            return jsonify({"error": "No data found for this region or time range."}), 404
-
-        param_data = nasa_json["properties"]["parameter"]
-
-        # 3️⃣ Structure data for frontend
-        # Example: {"T2M": [22.1, 24.3, 23.8], "dates": ["2024-05-01", "2024-05-02", "2024-05-03"]}
-        all_dates = list(param_data[parameters[0]].keys())
-        structured = {"dates": all_dates}
-        for param in parameters:
-            structured[param] = list(param_data[param].values())
-
-        # 4️⃣ Compute mean values
-        mean_data = {
-            param: round(sum(values) / len(values), 2)
-            for param, values in structured.items() if param != "dates"
-        }
-
-        # 5️⃣ Predict weather likelihoods
-        likelihoods = compute_likelihoods(mean_data)
-
-        # 6️⃣ Farmer-friendly summary
-        summary = []
-        if likelihoods["very_wet"] > 0.5:
-            summary.append("🌧️ High chance of rain — consider preparing drainage or rain storage.")
-        if likelihoods["very_hot"] > 0.5:
-            summary.append("☀️ Hot days expected — ensure crops are well irrigated.")
-        if likelihoods["very_cold"] > 0.5:
-            summary.append("🥶 Possible cold conditions — protect seedlings or livestock.")
-        if likelihoods["very_windy"] > 0.5:
-            summary.append("💨 Windy conditions likely — secure light structures or nets.")
-        if likelihoods["very_uncomfortable"] > 0.5:
-            summary.append("💦 Humid days ahead — monitor for crop fungal infections.")
-
-        if not summary:
-            summary.append("🌤️ Conditions look stable — good time for routine farm work.")
-
-        # 7️⃣ Final response for frontend
-        return jsonify({
-            "location": place,
-            "coordinates": {"lat": lat, "lon": lon},
-            "time_range": {
-                "start": start_date.strftime("%Y-%m-%d"),
-                "end": end_date.strftime("%Y-%m-%d")
-            },
-            "structured_data": structured,     # ✅ ready for plotting
-            "mean_data": mean_data,             # ✅ summary stats
-            "likelihoods": likelihoods,         
-            "summary": summary                  
-        }), 200
-
+        start_year = int(start_date[:4])
+        end_year = int(end_date[:4])
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        print("ERROR parsing year:", e)
+        return {"error": f"Invalid date: {e}"}
+
+    params = {
+        "latitude": lat,
+        "longitude": lon,
+        "community": "AG",   # using agroclimatology community
+        "format": "JSON",
+        "parameters": "T2M,PRECTOTCORR,WS2M,QV2M",  # parameter choices for monthly
+        "start": str(start_year),
+        "end": str(end_year)
+    }
+
+    print("Request params:", params)
+
+    try:
+        response = requests.get(NASA_POWER_URL, params=params, timeout=60)
+        print("Request URL:", response.url)
+        print("Status code:", response.status_code)
+        data = response.json()
+        print("Returned keys:", list(data.keys()))
+    except Exception as e:
+        print("ERROR in request:", e)
+        return {"error": f"NASA API request failed: {e}"}
+
+    # Check error messages if POWER fails
+    if "header" in data and "messages" in data:
+        print("NASA returned error messages:")
+        for m in data["messages"]:
+            print(" >", m)
+        return {"error": "NASA API error", "details": data}
+
+    if "properties" not in data or "parameter" not in data["properties"]:
+        print("Unexpected structure; full data:", data)
+        return {"error": "Unexpected API structure", "details": data}
+
+    parameters = data["properties"]["parameter"]
+    print("Available parameters:", parameters.keys())
+
+    key_map = {
+        "T2M": "temperature (°C)",
+        "PRECTOT": "precipitation (mm)",
+        "WS2M": "wind speed (m/s)",
+        "QV2M": "humidity (g/kg)"
+    }
+
+    results = defaultdict(lambda: defaultdict(list))
+    for pcode, pvals in parameters.items():
+        pname = key_map.get(pcode, pcode)
+        for year_month, val in pvals.items():
+            # year_month is like "2020M01"
+            year = year_month[:4]
+            month = year_month[-2:]
+            results[pname][year].append({
+                "month": month,
+                "value": round(val, 2)
+            })
+
+    print("DEBUG: Completed processing.")
+    return {
+        "latitude": lat,
+        "longitude": lon,
+        "start_year": start_year,
+        "end_year": end_year,
+        "monthly_summary": results
+    }
+
+# fetch_weather_trends(34.05, -118.25, "2020-01-01", "2022-12-31")  # Example call
