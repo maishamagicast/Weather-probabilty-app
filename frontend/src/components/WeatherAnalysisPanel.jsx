@@ -71,41 +71,68 @@ const WeatherAnalysisPanel = ({ user }) => {
     setThresholds(newThresholds);
   };
 
-  const analyzeWeather = async () => {
-    setIsAnalyzing(true);
-    
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Generate realistic mock analysis results
-    const mockResults = selectedVariables.map(variable => {
-      const variableData = weatherVariables.find(v => v.id === variable);
-      const threshold = thresholds.find(t => t.variable === variable);
-      const baseValue = variable === 'temperature' ? 25 : 
-                       variable === 'precipitation' ? 50 : 
-                       variable === 'humidity' ? 65 : 4;
-      
-      const probability = Math.floor(Math.random() * 100);
-      const mean = (Math.random() * 10 + baseValue - 5).toFixed(1);
-      
-      return {
-        variable,
-        probability,
-        mean: parseFloat(mean),
-        threshold: threshold?.value || 30,
-        operator: threshold?.operator || 'above',
-        historicalData: Array.from({ length: 10 }, (_, i) => ({
-          year: 2023 - i,
-          value: (Math.random() * 15 + baseValue - 7.5).toFixed(1),
-          date: new Date(2023 - i, selectedDate.getMonth(), selectedDate.getDate()).toISOString()
-        })),
-        variableInfo: variableData
-      };
+ const analyzeWeather = async () => {
+  setIsAnalyzing(true);
+
+  try {
+    // Prepare payload
+    const payload = {
+      latitude: user?.location?.lat || 0,
+      longitude: user?.location?.lon || 0,
+      month: selectedDate.getMonth() + 1,
+      day: selectedDate.getDate(),
+      year: selectedDate.getFullYear(), // optional; used for logging maybe
+      query: {}
+    };
+
+    // Map thresholds into payload.query
+    thresholds.forEach(threshold => {
+      const key = threshold.variable;
+      const queryValue = `${threshold.value}:${threshold.operator}`;
+      payload.query[key] = queryValue;
     });
-    
-    setAnalysisResults(mockResults);
-    setIsAnalyzing(false);
-  };
+
+    // POST to backend
+    const res = await fetch("https://weather-probabilty-app.onrender.com/dashboard/analysis-results", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const responseData = await res.json();
+
+    if (res.ok) {
+      // You might need to adapt this depending on your backend response
+      const data = JSON.parse(responseData.data);
+
+      const results = Object.entries(data).map(([variable, probability]) => {
+        const variableInfo = weatherVariables.find(v => v.id === variable);
+        const threshold = thresholds.find(t => t.variable === variable);
+
+        return {
+          variable,
+          probability: parseInt(probability),
+          mean: null, // backend doesn't send this (yet)
+          threshold: threshold?.value || 30,
+          operator: threshold?.operator || 'above',
+          historicalData: [], // You can extend backend to provide this
+          variableInfo
+        };
+      });
+
+      setAnalysisResults(results);
+    } else {
+      console.error("Backend error:", responseData.error);
+    }
+  } catch (error) {
+    console.error("Error fetching weather data:", error);
+  }
+
+  setIsAnalyzing(false);
+};
+
 
   const exportData = (format) => {
     const data = {
@@ -278,23 +305,34 @@ const WeatherAnalysisPanel = ({ user }) => {
         </div>
       </div>
 
-      <button 
-        onClick={analyzeWeather}
-        disabled={isAnalyzing || selectedVariables.length === 0}
-        className="w-full py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 disabled:from-gray-600 disabled:to-gray-700 rounded-lg font-semibold text-white transition-all duration-300 flex items-center justify-center gap-2 disabled:cursor-not-allowed"
-      >
-        {isAnalyzing ? (
-          <>
-            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-            Analyzing NASA Data...
-          </>
-        ) : (
-          <>
-            <Satellite className="w-5 h-5" />
-            Analyze Weather Probability
-          </>
-        )}
-      </button>
+     <button 
+  onClick={analyzeWeather}
+  disabled={isAnalyzing || selectedVariables.length === 0}
+  className="w-full py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 disabled:from-gray-600 disabled:to-gray-700 rounded-lg font-semibold text-white transition-all duration-300 flex items-center justify-center gap-2 disabled:cursor-not-allowed"
+>
+  {isAnalyzing ? (
+    <>
+      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+      Analyzing NASA Data...
+    </>
+  ) : (
+    <>
+      <Satellite className="w-5 h-5" />
+      Analyze Weather Probability
+    </>
+  )}
+</button>
+
+{/* Add this directly under it */}
+<div className="mt-3 text-center">
+  <button
+    onClick={() => onOpenSatellite && onOpenSatellite()}
+    className="px-4 py-2 bg-purple-600/20 border border-purple-500/40 rounded-lg text-purple-300 hover:bg-purple-600/30 transition-all text-sm"
+  >
+    🌍 View NASA Satellite Map
+  </button>
+</div>
+
 
       {/* Results Display */}
       {analysisResults.length > 0 && (
