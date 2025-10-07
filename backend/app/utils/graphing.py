@@ -1,125 +1,87 @@
-from datetime import datetime, timedelta
-from app.utils.nasa_fetch import fetch_nasa_power_data
 import requests
+from collections import defaultdict
 
-PARAMETER_MAP = {
-    "temperature": "T2M",
-    "humidity": "RH2M",
-    "precipitation": "PRECTOTCORR",
-    "wind_speed": "WS2M"
-}
-
+NASA_POWER_URL = "https://power.larc.nasa.gov/api/temporal/monthly/point"
 
 def fetch_weather_trends(lat, lon, start_date, end_date):
     """
-    Fetch NASA POWER weather data (daily, monthly, yearly)
-    for multiple key parameters across specified time ranges.
-
-    Args:
-        lat (float): Latitude
-        lon (float): Longitude
-        start_date (str): e.g. "20200101"
-        end_date (str): e.g. "20251005"
-
-    Returns:
-        dict: Structured weather data for plotting and analysis.
+    Using NASA POWER Monthly API (as documented):
+    - start and end must be **year only**, e.g. 2020, 2022
+    - send valid monthly-aggregated parameter names
     """
+    print("DEBUG: Starting fetch_weather_trends")
+    print(f"Inputs: lat={lat}, lon={lon}, start_date={start_date}, end_date={end_date}")
+
+    # Parse only the year portion
     try:
-        # Convert strings → datetime objects
-        start_dt = datetime.strptime(start_date, "%Y%m%d")
-        end_dt = datetime.strptime(end_date, "%Y%m%d")
-
-        print(f"\n📡 Fetching weather data for lat={lat}, lon={lon}")
-        print(f"🗓️ Date range: {start_date} → {end_date}")
-
-        # 1️⃣ DAILY data
-        daily_json = fetch_nasa_power_data(lat, lon, start_date, end_date, temporal="daily")
-        daily_data = {}
-        if "properties" in daily_json and "parameter" in daily_json["properties"]:
-            param_data = daily_json["properties"]["parameter"]
-            all_dates = list(param_data[PARAMETER_MAP["temperature"]].keys())
-            daily_data["dates"] = all_dates
-            for name, nasa_key in PARAMETER_MAP.items():
-                daily_data[name] = list(param_data.get(nasa_key, {}).values())
-
-        print(f"✅ Fetched {len(daily_data.get('dates', []))} daily records")
-
-        # 2️⃣ MONTHLY data (past 5 years)
-        end_monthly = datetime.now()
-        start_monthly = end_monthly - timedelta(days=5 * 365)
-        monthly_json = fetch_nasa_power_data(
-            lat, lon,
-            start_monthly.strftime("%Y%m%d"),
-            end_monthly.strftime("%Y%m%d"),
-            temporal="monthly"
-        )
-
-        monthly_data = {}
-        if "properties" in monthly_json and "parameter" in monthly_json["properties"]:
-            monthly_param_data = monthly_json["properties"]["parameter"]
-            months = list(monthly_param_data[PARAMETER_MAP["temperature"]].keys())
-            monthly_data["months"] = months
-            for name, nasa_key in PARAMETER_MAP.items():
-                monthly_data[name] = list(monthly_param_data.get(nasa_key, {}).values())
-
-        print(f"✅ Fetched {len(monthly_data.get('months', []))} monthly records")
-
-        # 3️⃣ YEARLY data (past 10 years)
-        end_yearly = datetime.now()
-        start_yearly = end_yearly - timedelta(days=10 * 365)
-        yearly_json = fetch_nasa_power_data(
-            lat, lon,
-            start_yearly.strftime("%Y%m%d"),
-            end_yearly.strftime("%Y%m%d"),
-            temporal="annual"
-        )
-
-        yearly_data = {}
-        if "properties" in yearly_json and "parameter" in yearly_json["properties"]:
-            yearly_param_data = yearly_json["properties"]["parameter"]
-            years = list(yearly_param_data[PARAMETER_MAP["temperature"]].keys())
-            yearly_data["years"] = years
-            for name, nasa_key in PARAMETER_MAP.items():
-                yearly_data[name] = list(yearly_param_data.get(nasa_key, {}).values())
-
-        print(f"✅ Fetched {len(yearly_data.get('years', []))} yearly records")
-
-        # 4️⃣ Compute means
-        mean_data = {}
-        for name in PARAMETER_MAP.keys():
-            values = daily_data.get(name, [])
-            if values:
-                mean_data[name] = round(sum(values) / len(values), 2)
-            else:
-                mean_data[name] = None
-
-        print(f"📊 Mean data: {mean_data}")
-
-        # ✅ Final structured output
-        result = {
-            "coordinates": {"lat": lat, "lon": lon},
-            "time_range": {"start": start_date, "end": end_date},
-            "daily_data": daily_data,
-            "monthly_5yr_data": monthly_data,
-            "yearly_10yr_data": yearly_data,
-            "mean_data": mean_data
-        }
-
-        print("\n🎯 WEATHER TREND SUMMARY READY ✅")
-        return result
-
+        start_year = int(start_date[:4])
+        end_year = int(end_date[:4])
     except Exception as e:
-        print(f"❌ Error: {e}")
-        return {"error": str(e)}
+        print("ERROR parsing year:", e)
+        return {"error": f"Invalid date: {e}"}
 
+    params = {
+        "latitude": lat,
+        "longitude": lon,
+        "community": "AG",   # using agroclimatology community
+        "format": "JSON",
+        "parameters": "T2M,PRECTOTCORR,WS2M,QV2M",  # parameter choices for monthly
+        "start": str(start_year),
+        "end": str(end_year)
+    }
 
-# Example usage for testing
-if __name__ == "__main__":
-    data = fetch_weather_trends(
-        lat=34.05,
-        lon=-118.25,
-        start_date="20200101",
-        end_date="20251005"
-    )
-    print("\n🧾 FINAL RESULT SAMPLE KEYS:")
-    print(data.keys())
+    print("Request params:", params)
+
+    try:
+        response = requests.get(NASA_POWER_URL, params=params, timeout=60)
+        print("Request URL:", response.url)
+        print("Status code:", response.status_code)
+        data = response.json()
+        print("Returned keys:", list(data.keys()))
+    except Exception as e:
+        print("ERROR in request:", e)
+        return {"error": f"NASA API request failed: {e}"}
+
+    # Check error messages if POWER fails
+    if "header" in data and "messages" in data:
+        print("NASA returned error messages:")
+        for m in data["messages"]:
+            print(" >", m)
+        return {"error": "NASA API error", "details": data}
+
+    if "properties" not in data or "parameter" not in data["properties"]:
+        print("Unexpected structure; full data:", data)
+        return {"error": "Unexpected API structure", "details": data}
+
+    parameters = data["properties"]["parameter"]
+    print("Available parameters:", parameters.keys())
+
+    key_map = {
+        "T2M": "temperature (°C)",
+        "PRECTOT": "precipitation (mm)",
+        "WS2M": "wind speed (m/s)",
+        "QV2M": "humidity (g/kg)"
+    }
+
+    results = defaultdict(lambda: defaultdict(list))
+    for pcode, pvals in parameters.items():
+        pname = key_map.get(pcode, pcode)
+        for year_month, val in pvals.items():
+            # year_month is like "2020M01"
+            year = year_month[:4]
+            month = year_month[-2:]
+            results[pname][year].append({
+                "month": month,
+                "value": round(val, 2)
+            })
+
+    print("DEBUG: Completed processing.")
+    return {
+        "latitude": lat,
+        "longitude": lon,
+        "start_year": start_year,
+        "end_year": end_year,
+        "monthly_summary": results
+    }
+
+# fetch_weather_trends(34.05, -118.25, "2020-01-01", "2022-12-31")  # Example call

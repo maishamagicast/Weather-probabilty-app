@@ -3,6 +3,7 @@ from app.utils.nasa_power_fetcher import fetch_nasa_power_5yr
 from app.utils.weekly_forecast import get_forecast
 from app.utils.analysis import fetch_and_analyze_nasa_data
 from app.utils.graphing import fetch_weather_trends
+from app.utils.json import analyze_weather_json
 
 
 dashboard_bp = Blueprint("dashboard_bp", __name__)
@@ -130,37 +131,47 @@ def get_analysis_results():
         return response, 500
     
 @dashboard_bp.route("/nasa-graphing", methods=["POST", "OPTIONS"])
-
 def get_weather_trends():
-    """
-    Fetch NASA POWER daily, monthly, and yearly weather trends.
-    Expects:
-    {
-      "latitude": -3.4843,
-      "longitude": 37.3974,
-      "start_date": "20200101",
-      "end_date": "20251005"
-    }
-    """
-    data = request.get_json()
+    """Fetch and summarize NASA POWER monthly weather data."""
+    if request.method == "OPTIONS":
+        response = jsonify({"message": "CORS preflight OK"})
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
+        response.headers.add("Access-Control-Allow-Headers", "Content-Type")
+        return response, 200
+
+    data = request.get_json(silent=True)
     if not data:
         return jsonify({"error": "Missing JSON body"}), 400
 
     lat = data.get("latitude")
     lon = data.get("longitude")
-    start_date = data.get("start_date")
-    end_date = data.get("end_date")
+    start_date = str(data.get("start_date"))[:4]  # ✅ only year (YYYY)
+    end_date = str(data.get("end_date"))[:4]      # ✅ only year (YYYY)
 
     if not all([lat, lon, start_date, end_date]):
-        return jsonify({"error": "Missing required fields"}), 400
+        return jsonify({
+            "error": "Missing required fields: latitude, longitude, start_date, end_date"
+        }), 400
 
     try:
-        result = fetch_weather_trends(lat, lon, start_date, end_date)
-        print("\n✅ WEATHER TREND SUMMARY:\n", result["mean_data"])
+        # ✅ NASA Monthly API expects YYYY format for annual/monthly data
+        nasa_raw = fetch_weather_trends(lat, lon, start_date, end_date)
+
+        # Handle NASA API errors
+        if "header" in nasa_raw and "messages" in nasa_raw:
+            return jsonify({
+                "error": "NASA POWER API returned an error.",
+                "details": nasa_raw.get("messages", [])
+            }), 502
+
+        # Analyze JSON
+        analyzed = analyze_weather_json(nasa_raw)
 
         response = jsonify({
-            "message": "Weather trends successfully fetched.",
-            "data": result
+            "message": "Weather trends successfully fetched and analyzed.",
+            "coordinates": {"latitude": lat, "longitude": lon},
+            "data": analyzed
         })
         response.headers.add("Access-Control-Allow-Origin", "*")
         return response, 200
@@ -168,4 +179,4 @@ def get_weather_trends():
     except Exception as e:
         import traceback
         traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": f"Server error: {str(e)}"}), 500
