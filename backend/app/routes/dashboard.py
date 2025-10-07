@@ -3,7 +3,7 @@ from app.utils.nasa_power_fetcher import fetch_nasa_power_5yr
 from app.utils.weekly_forecast import get_forecast
 from app.utils.analysis import fetch_and_analyze_nasa_data
 from app.utils.graphing import fetch_weather_trends
-from app.utils.json import analyze_weather_json
+from app.utils.json_analysis import analyze_weather_json
 
 
 dashboard_bp = Blueprint("dashboard_bp", __name__)
@@ -43,7 +43,7 @@ def get_nasa_data():
 
 
 
-@dashboard_bp.route("/forecast", methods=["POST"])
+@dashboard_bp.route("/farm-advice", methods=["POST"])
 def seasonal_forecast():
     """
     Fetch short-term (7–30 days) NASA POWER weather forecast for a given location.
